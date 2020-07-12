@@ -30,7 +30,7 @@ fileHead = do
         s2Ds <- sequence [ script "https://bossanova.uk/jexcel/v3/jexcel.js"
                          , css    "https://bossanova.uk/jexcel/v3/jexcel.css"
                          ]
-        whenLoaded s2Ds blank blank
+        _ <- whenLoaded s2Ds blank blank
         return ()
 
 --

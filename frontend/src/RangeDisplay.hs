@@ -47,21 +47,14 @@ mkRangeDisplay
   => Dynamic t (Range ShapedHand Double) -> m (Event t ShapedHand)
 mkRangeDisplay displayRangeD = do
   fmap switchPromptlyDyn . prerender (never <$ blank) $ do
-    tableReturn <- tableDynAttr
-      ""
-        (ffor allRanks $ \headerRank ->
-          ("", (\(_, rowRank) _ -> do
-                    let cellHand = ranksToShapedHand rowRank headerRank
-                    (e, _) <- mkRangeCell (lookupOr cellHand 0 <$> displayRangeD) (tshow cellHand)
-                    pure $ cellHand <$ domEvent Click e
-          )))
-      (constDyn rowMap)
-      (const . pure $ constDyn Map.empty)
-    let res = fmap (leftmost . snd) . Map.elems <$> tableReturn
-    pure $ switchPromptlyDyn $ leftmost <$> res
-  where
-      rowMap :: Map.Map (Integer, Rank) ()
-      rowMap = Map.fromList $ zip (zip [1..] allRanks) (repeat ())
+    elAttr "table" (Map.empty) $ do
+      el "tbody" $ do
+        (fmap $ leftmost . join) . for allRanks $ \r1 ->
+          el "tr" $
+            for allRanks $ \r2 -> do
+              let hand = ranksToShapedHand r1 r2
+              (e, _) <- mkRangeCell (lookupOr hand 0 <$> displayRangeD) (tshow hand)
+              pure $ hand <$ domEvent Click e
 
 mkRangeCell :: MonadWidget t m => Dynamic t Double -> Text -> m (Element EventResult (DomBuilderSpace m) t,
                         (Element EventResult GhcjsDomSpace t, ()))
@@ -72,34 +65,26 @@ mkRangeCell freq cellText = do
 holdingTable :: forall t m. (Reflex t, MonadWidget t m)
               => Dynamic t ShapedHand
               -> Dynamic t (Range Holding Double)
-              -> Dynamic t (m ())
-holdingTable shD mainRangeD = do
-  -- FIXME EFFICIENCY
-  let getRowSize (ShapedHand _ shape) = case shape of
+              -> Dynamic t (m (Event t Holding))
+holdingTable shD mainRangeD = shD <&> \sh ->
+  let rowSize = getRowSize sh
+      holdingsRows = chunksOf rowSize . listHoldings $ sh
+  in elAttr "table" (Map.empty) $ do
+      el "tbody" $ do
+        fmap (leftmost . join) . for holdingsRows $ \holdingRow ->
+          el "tr" $
+            for holdingRow $ \holding -> do
+              (e, _) <- mkRangeCell (lookupOr holding 0 <$> mainRangeD) (tshow holding)
+              pure $ holding <$ domEvent Click e
+  where
+    getRowSize (ShapedHand _ shape) = case shape of
                   Offsuit -> 4
                   Suited  -> 2
                   Pair    -> 3
-  rowSizeAndholdingRowsD :: (Int, [[Holding]])
-                         <- shD <&> \sh -> (getRowSize sh, chunksOf (getRowSize sh) . listHoldings $ sh)
-  pure . void $ tableDynAttr
-                  ""
-                  ([0..(fst rowSizeAndholdingRowsD) - 1]
-                      <&> \num ->
-                        ( ""
-                        , \_ (dynRow :: Dynamic t [Holding]) ->
-                            void . dyn $
-                                  (dynRow <&> (\row -> do
-                                    let holding = row !! num
-                                    mkRangeCell
-                                      (lookupOr holding 0 <$> mainRangeD)
-                                      (tshow holding)))))
-                  (constDyn . Map.fromList $ zip [1..] (snd rowSizeAndholdingRowsD))
-                  (\rowKey -> pure . constDyn $ Map.empty)
-  where
     listHoldings :: ShapedHand -> [Holding]
     listHoldings (ShapedHand (r1, r2) shape) =
       case shape of
-        Suited -> [ Holdem (Card r1 suit) (Card r2 suit) | suit <- listSuit ]
+        Suited -> [ Holdem (Card r1 suit_) (Card r2 suit_) | suit_ <- listSuit ]
         Pair   -> [ Holdem (Card r1 s1) (Card r2 s2)
                   | s1 <- listSuit
                   , s2 <- listSuit

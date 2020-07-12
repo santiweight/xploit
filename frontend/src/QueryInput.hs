@@ -4,6 +4,7 @@
 
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE DataKinds #-}
