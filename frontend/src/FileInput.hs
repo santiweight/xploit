@@ -1,0 +1,84 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecursiveDo       #-}
+{-# LANGUAGE ViewPatterns       #-}
+
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE RecursiveDo #-}
+
+module FileInput where
+
+import Control.Lens
+import Control.Monad
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import Language.Javascript.JSaddle (eval, liftJSM)
+import           "reflex-utils"   Reflex.Utils
+import           "reflex-jexcel"  Reflex.JExcel
+import           "reflex-fileapi" Reflex.FileAPI.FileAPI
+
+import Obelisk.Frontend
+import Obelisk.Configs
+import Obelisk.Route
+import Obelisk.Generated.Static
+
+import Reflex.Dom.Core
+
+import Common.Api
+import Common.Route
+
+import QueryInput
+import RangeDisplay
+
+fileHead :: forall t m. MonadWidget t m => m (Dynamic t Bool)
+fileHead = do
+    s1Ds <- sequence [ script "https://bossanova.uk/jsuites/v2/jsuites.js"
+                     , css    "https://bossanova.uk/jsuites/v2/jsuites.css"
+                     ]
+    whenLoaded s1Ds blank $ do
+        s2Ds <- sequence [ script "https://bossanova.uk/jexcel/v3/jexcel.js"
+                         , css    "https://bossanova.uk/jexcel/v3/jexcel.css"
+                         ]
+        whenLoaded s2Ds blank blank
+        return ()
+
+--
+fileBody :: MonadWidget t m => m (Dynamic t T.Text)
+fileBody = do
+    -- button triggers everything
+    clickE  <- button "Load"
+
+    -- filereader is triggered by clickE
+    fileChunkTextE <- filereader "files[]" stepSize clickE
+
+    -- csvE :: Event t [[Text]]
+    let csvE = (map (T.splitOn ",") . T.lines) <$> fileChunkTextE
+    csvD <- holdDyn [] csvE
+
+    -- spreadsheet
+    let jexcelD = buildJExcel <$> csvD
+    _ <- jexcel (JExcelInput "excel1" jexcelD)
+
+    -- text display
+    display csvD
+
+    return $ T.unlines . fmap T.unlines <$> csvD
+    where
+        stepSize :: Int
+        stepSize = 10000000 -- bytes
+
+        headerToColumn :: T.Text -> JExcelColumn
+        headerToColumn name
+            = def
+            & jExcelColumn_title ?~ name
+
+        buildJExcel :: [[T.Text]] -> JExcel
+        buildJExcel [] = def
+        buildJExcel (headers:rows)
+            = def
+            & jExcel_columns    ?~ map headerToColumn headers
+            & jExcel_data       ?~ rows
