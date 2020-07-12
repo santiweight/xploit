@@ -9,17 +9,12 @@
 
 module Backend where
 
-import Frontend
-import Common.Api
+import Common.Server.Api
 import Common.Route
-import Data.Text (Text)
 import Obelisk.Backend
 import Obelisk.Route
-import "servant-snap" Servant.Server (serveSnap, Server)
-import Servant.API ((:>), (:<|>) (..), Capture, Get, JSON)
-import Snap.Core (MonadSnap)
+import "servant-snap" Servant.Server (serveSnap)
 import Data.Proxy
-import Control.Monad.IO.Class
 
 -- apiServer :: MonadSnap m => m ()
 -- apiServer = serveSnap (Proxy @MyAPI) server

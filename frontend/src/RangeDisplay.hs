@@ -26,8 +26,8 @@ import Poker.Range
 import Poker.Base
 import Data.List.Split
 import Control.Monad.Fix
-import Control.Monad.IO.Class
 import qualified Data.Map as Map
+import Data.Traversable
 
 initialRange :: Range ShapedHand Double
 initialRange = Range $ Map.empty

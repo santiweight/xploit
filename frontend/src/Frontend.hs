@@ -21,35 +21,25 @@ module Frontend where
 import Control.Lens
 import Control.Monad
 import qualified Data.Text as T
--- import qualified Data.Text.Encoding as T
--- import Language.Javascript.JSaddle (eval, liftJSM)
--- import           "reflex-utils"   Reflex.Utils hiding (whenLoaded)
--- import           "reflex-jexcel"  Reflex.JExcel
--- import           "reflex-fileapi" Reflex.FileAPI.FileAPI
 import qualified Data.Map as Map
-
-import Data.List.Split (chunksOf)
+import Reflex.Dom.Class
+import Prelude hiding (mapM, mapM_, sequence, sequence_)
+import Reflex
 import Obelisk.Frontend
--- import Obelisk.Configs
 import Obelisk.Route
 import Obelisk.Generated.Static
 import Poker.Base
 import Poker.Range
-
-import Reflex.Dom.Core
--- import Data.Bifunctor
--- import Data.Foldable (toList)
-
-import Common.Api
+import Reflex.Dom.Core hiding (tabDisplay)
+import Common.Server.Api
 import Common.Route
 import "servant-snap" Servant
--- import "servant-snap" Servant.Server
 import Servant.Reflex
-
 import QueryInput
 import RangeDisplay
 import FileInput
 import ActionIxSelector
+import TabView
 
 whenLoaded :: forall t m. MonadWidget t m
            => [Dynamic t Bool]
@@ -71,6 +61,9 @@ whenLoaded loadedDs
     changeE_ <- headE $ updated changeD
     let changeE = True <$ changeE_
     holdDyn False changeE
+
+data TabChoice = RangeDisplay | HistoryDisplay
+  deriving (Show, Read, Eq, Ord)
 
 -- This runs in a monad that can be run on the client or the server.
 -- To run code in a pure client or pure server context, use one of the

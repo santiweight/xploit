@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE ViewPatterns       #-}
+{-# LANGUAGE MonoLocalBinds       #-}
 
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
@@ -13,28 +14,14 @@
 module FileInput where
 
 import Control.Lens
-import Control.Monad
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import Language.Javascript.JSaddle (eval, liftJSM)
 import           "reflex-utils"   Reflex.Utils
 import           "reflex-jexcel"  Reflex.JExcel
 import           "reflex-fileapi" Reflex.FileAPI.FileAPI
 
-import Obelisk.Frontend
-import Obelisk.Configs
-import Obelisk.Route
-import Obelisk.Generated.Static
-
 import Reflex.Dom.Core
 
-import Common.Api
-import Common.Route
-
-import QueryInput
-import RangeDisplay
-
-fileHead :: forall t m. MonadWidget t m => m (Dynamic t Bool)
+fileHead :: MonadWidget t m => m (Dynamic t Bool)
 fileHead = do
     s1Ds <- sequence [ script "https://bossanova.uk/jsuites/v2/jsuites.js"
                      , css    "https://bossanova.uk/jsuites/v2/jsuites.css"
