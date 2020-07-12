@@ -108,11 +108,11 @@ mainPane = do
               codeD <- el "div" $ (cmBody =<< fileBody)
               (handD, fullRangeD) <- el "div" $ do
                           handClickE <- mkRangeDisplay $ getMainRange <*> fullRangeD
-                          handD <- holdDyn acesHand handClickE
-                          fullRangeD :: Dynamic t (Range Holding [PlayerActionValue])
+                          handD' <- holdDyn acesHand handClickE
+                          fullRangeD' :: Dynamic t (Range Holding [PlayerActionValue])
                                       <- holdDyn (Range Map.empty) successResultE
-                          pure (handD, fullRangeD)
-              _ <- el "div" $ do
+                          pure (handD', fullRangeD')
+              _ <- el "div" $
                 dyn $ holdingTable handD (toHoldingFreqs <$> actionIxD <*> fullRangeD)
               runE <- el "div" $ button "run"
               resultE <- runQuery (QParamSome . T.unpack <$> codeD) runE
@@ -127,16 +127,6 @@ mainPane = do
             & range . traverse %~ freqToDouble
     acesHand :: ShapedHand
     acesHand = ShapedHand (Ace, Ace) Pair
-    getActiveSideRange
-      :: ShapedHand
-      -> ActionIx
-      -> Range Holding [PlayerActionValue]
-      -> [(Holding, Double)] -- frequencies for holdings under ShapedHand
-    getActiveSideRange activeHand actionIx mainR =
-      shapeToCombos activeHand <&> \holding ->
-        let holdingActs = mainR ^. range . at holding . non []
-        in ( holding
-            , freqToDouble $ countFreqMatched (inIndex actionIx) holdingActs)
     groupByShape
       :: Range Holding [PlayerActionValue]
       -> Range ShapedHand [PlayerActionValue]
@@ -159,6 +149,7 @@ mainPane = do
             & range . traverse %~ countFreqMatched (inIndex ix)
             & range . traverse %~ freqToDouble
     freqToDouble :: (Int, Int) -> Double
+    freqToDouble (_, 0) = 0
     freqToDouble (n, d) = fromIntegral n / fromIntegral d * 100
 
 
