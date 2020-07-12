@@ -9,7 +9,7 @@
 
 module Backend where
 
-import Common.Server.Api
+import Common.Api
 import Common.Route
 import Obelisk.Backend
 import Obelisk.Route

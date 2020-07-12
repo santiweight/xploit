@@ -31,7 +31,7 @@ import Obelisk.Generated.Static
 import Poker.Base
 import Poker.Range
 import Reflex.Dom.Core hiding (tabDisplay)
-import Common.Server.Api
+import Common.Api
 import Common.Route
 import "servant-snap" Servant
 import Servant.Reflex
