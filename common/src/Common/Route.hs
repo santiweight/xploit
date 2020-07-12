@@ -17,8 +17,8 @@ import Prelude hiding (id, (.))
 import Control.Category
 -}
 
-import Prelude hiding (id, (.))
-import Control.Category (id, (.))
+import Prelude hiding (id)
+import Control.Category (id)
 
 import Data.Text (Text)
 import Data.Functor.Identity

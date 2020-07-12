@@ -39,7 +39,6 @@ import QueryInput
 import RangeDisplay
 import FileInput
 import ActionIxSelector
-import TabView
 
 whenLoaded :: forall t m. MonadWidget t m
            => [Dynamic t Bool]
@@ -79,83 +78,88 @@ frontend = Frontend
             headD <- fileHead
             headCM <- cmHead
             _ <- whenLoaded [headD, headCM] blank $ do
-              (codeD, handD) <- mainPane -- pure (queryTextD, constDyn acesHand)
+              text "hi"
+              (codeD, shapedHandD) <- mainPane
+              -- _ <- tabDisplay "" ""
+              --            (Map.fromList
+              --            [ ( RangeDisplay
+              --              , ("Range Display", Right <$> mainPane) )
+              --            , ( HistoryDisplay
+              --              , ("History Display", Left <$> blank) )
+              --            ])
               display codeD
-              display handD
+              display shapedHandD
+              pure ()
             pure ()
+          pure ()
   }
-    where
-      mainPane
-        :: forall js t m. (MonadWidget t m, Prerender js t m)
-        => m (Dynamic t T.Text, Dynamic t ShapedHand)
-      mainPane = do
-        resD <- prerender ((constDyn "", constDyn acesHand) <$ text "My Prerender") $
-                do
-                  rec
-                    actionIxD <- join <$> prerender (constDyn AnyIx <$ blank) actionIxSelector
-                    let getMainRange :: Dynamic t (Range Holding [PlayerActionValue]
-                                          -> Range ShapedHand Double)
-                        getMainRange = getDisplayRange <$> actionIxD
-                    codeD <- el "div" $ (cmBody =<< fileBody)
-                    (handD, fullRangeD) <- el "div" $ do
-                                handClickE <- mkRangeDisplay $ getMainRange <*> fullRangeD
-                                handD <- holdDyn acesHand handClickE
-                                fullRangeD :: Dynamic t (Range Holding [PlayerActionValue])
-                                           <- holdDyn (Range Map.empty) successResultE
-                                pure (handD, fullRangeD)
-                    el "div" $ do
-                      dyn $ holdingTable handD (toHoldingFreqs <$> actionIxD <*> fullRangeD)
-                      pure ()
 
-                    -- display handD
-                    -- display codeD
-                    runE <- el "div" $ button "run"
-                    resultE <- runQuery (QParamSome . T.unpack <$> codeD) runE
-                    let successResultE = mapMaybe reqSuccess resultE
-                  pure (codeD, handD)
-        pure . bimap join join $ splitDynPure resD
-      toHoldingFreqs :: ActionIx -> Range Holding [PlayerActionValue] -> Range Holding Double
-      toHoldingFreqs ix mainRange =
-        mainRange
-              & range . traverse %~ countFreqMatched (inIndex ix)
-              & range . traverse %~ freqToDouble
-
-
-      acesHand :: ShapedHand
-      acesHand = ShapedHand (Ace, Ace) Pair
-      getActiveSideRange
-        :: ShapedHand
-        -> ActionIx
-        -> Range Holding [PlayerActionValue]
-        -> [(Holding, Double)] -- frequencies for holdings under ShapedHand
-      getActiveSideRange activeHand actionIx mainR =
-        shapeToCombos activeHand <&> \holding ->
-          let holdingActs = mainR ^. range . at holding . non []
-          in ( holding
-             , freqToDouble $ countFreqMatched (inIndex actionIx) holdingActs)
-      groupByShape
-        :: Range Holding [PlayerActionValue]
-        -> Range ShapedHand [PlayerActionValue]
-      groupByShape rang = Range . Map.fromList $
-            ffor allShapedHands $ \shapedHand ->
-              let holdings = shapeToCombos shapedHand
-              in ( shapedHand
-                 , concatMap
-                      (maybe [] id . (`Map.lookup` _range rang))
-                      holdings)
-      countFreqMatched :: (a -> Bool) -> [a] -> (Int, Int)
-      countFreqMatched pred ls =
-        (length $ filter pred ls, length ls)
-      getDisplayRange
-        :: ActionIx
-        -> Range Holding [PlayerActionValue]
-        -> Range ShapedHand Double
-      getDisplayRange ix mainRange =
-            groupByShape mainRange
-              & range . traverse %~ countFreqMatched (inIndex ix)
-              & range . traverse %~ freqToDouble
-      freqToDouble :: (Int, Int) -> Double
-      freqToDouble (n, d) = fromIntegral n / fromIntegral d * 100
+mainPane
+  :: forall js t m. (MonadWidget t m, Prerender js t m)
+  => m (Dynamic t T.Text, Dynamic t ShapedHand)
+mainPane = do
+  resD <- prerender ((constDyn "", constDyn acesHand) <$ text "My Prerender") $
+          do
+            rec
+              actionIxD <- join <$> prerender (constDyn AnyIx <$ blank) actionIxSelector
+              let getMainRange :: Dynamic t (Range Holding [PlayerActionValue]
+                                    -> Range ShapedHand Double)
+                  getMainRange = getDisplayRange <$> actionIxD
+              codeD <- el "div" $ (cmBody =<< fileBody)
+              (handD, fullRangeD) <- el "div" $ do
+                          handClickE <- mkRangeDisplay $ getMainRange <*> fullRangeD
+                          handD <- holdDyn acesHand handClickE
+                          fullRangeD :: Dynamic t (Range Holding [PlayerActionValue])
+                                      <- holdDyn (Range Map.empty) successResultE
+                          pure (handD, fullRangeD)
+              _ <- el "div" $ do
+                dyn $ holdingTable handD (toHoldingFreqs <$> actionIxD <*> fullRangeD)
+              runE <- el "div" $ button "run"
+              resultE <- runQuery (QParamSome . T.unpack <$> codeD) runE
+              let successResultE = mapMaybe reqSuccess resultE
+            pure (codeD, handD)
+  pure . bimap join join $ splitDynPure resD
+  where
+    toHoldingFreqs :: ActionIx -> Range Holding [PlayerActionValue] -> Range Holding Double
+    toHoldingFreqs ix mainRange =
+      mainRange
+            & range . traverse %~ countFreqMatched (inIndex ix)
+            & range . traverse %~ freqToDouble
+    acesHand :: ShapedHand
+    acesHand = ShapedHand (Ace, Ace) Pair
+    getActiveSideRange
+      :: ShapedHand
+      -> ActionIx
+      -> Range Holding [PlayerActionValue]
+      -> [(Holding, Double)] -- frequencies for holdings under ShapedHand
+    getActiveSideRange activeHand actionIx mainR =
+      shapeToCombos activeHand <&> \holding ->
+        let holdingActs = mainR ^. range . at holding . non []
+        in ( holding
+            , freqToDouble $ countFreqMatched (inIndex actionIx) holdingActs)
+    groupByShape
+      :: Range Holding [PlayerActionValue]
+      -> Range ShapedHand [PlayerActionValue]
+    groupByShape rang = Range . Map.fromList $
+          ffor allShapedHands $ \shapedHand ->
+            let holdings = shapeToCombos shapedHand
+            in ( shapedHand
+                , concatMap
+                    (maybe [] id . (`Map.lookup` _range rang))
+                    holdings)
+    countFreqMatched :: (a -> Bool) -> [a] -> (Int, Int)
+    countFreqMatched pred ls =
+      (length $ filter pred ls, length ls)
+    getDisplayRange
+      :: ActionIx
+      -> Range Holding [PlayerActionValue]
+      -> Range ShapedHand Double
+    getDisplayRange ix mainRange =
+          groupByShape mainRange
+            & range . traverse %~ countFreqMatched (inIndex ix)
+            & range . traverse %~ freqToDouble
+    freqToDouble :: (Int, Int) -> Double
+    freqToDouble (n, d) = fromIntegral n / fromIntegral d * 100
 
 
 

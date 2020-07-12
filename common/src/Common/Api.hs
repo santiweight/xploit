@@ -15,7 +15,6 @@ import Database.Esqueleto
 import Database.Persist.Postgresql
 import Control.Monad.IO.Class
 import Control.Monad
-import Poker.Base (inIndex)
 import Poker.Parse.Base
 import Poker.Filter.Parser.Parser
 import Poker.Filter.Eval.AST.Base (forget)
@@ -23,12 +22,6 @@ import Poker.Filter.Eval.Base
 import DB.Base
 import Control.Monad.Logger
 import Control.Monad.Trans.Resource
-import Data.Maybe
-import Database.Esqueleto
-import Database.Persist.Postgresql
-import Network.Wai
-import Network.Wai.Handler.Warp
-import "base-compat" Prelude.Compat
 import DB.Query
 
 commonStuff :: String
@@ -73,7 +66,6 @@ addHandsServer :: MonadSnap m => Server LoadHandHAPI l m
 addHandsServer fpMay=
       case fpMay of
         Just fp -> do
-          liftIO $ print "adding hands"
           hands <- liftIO $ parseInPath fp
           liftIO $ forM_ hands insertHand
           pure ()
@@ -90,7 +82,6 @@ queryServer = queryHandler
       => Maybe String
       -> m (Range Holding [PlayerActionValue])
     queryHandler (Just queryStr) = do
-      liftIO $ print "running query"
       hands <- liftIO $ runDb selectAllHands
       -- queryStr <- liftIO $ readFile path
       let query' = forget . parseQuery $ queryStr
