@@ -19,28 +19,10 @@ import Control.Lens
 import Control.Applicative
 import Reflex.Dom
 import qualified Data.Text as T
-import Data.Aeson (Value (String), FromJSON, parseJSON, genericParseJSON, defaultOptions, fieldLabelModifier)
--- import qualified Reflex.CodeMirror as CM
--- import Reflex.Utils
--- import Reflex.Dom.Widget.Input
--- import Control.Monad.IO.Class
 import Control.Monad
--- import Poker.Range
 import Poker.Base
--- import Data.List.Split
 import Control.Monad.Fix
 import qualified Data.Map as Map
--- import           "reflex-utils"   Reflex.Utils
--- import           "reflex-jexcel"  Reflex.JExcel
--- import           "reflex-fileapi" Reflex.FileAPI.FileAPI
-
-
--- data IxRange
---   = AnyRn
---   | BetweenRn Double Double
---   | AboveRn Double
---   | BelowRn Double
---   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 data IxRangeS
   = AnyRnS
@@ -61,17 +43,6 @@ data ActionIxS
   | LeaveIxS
   deriving (Show, Eq, Ord, Enum)
 
--- data ActionIx
---   = AnyIx
---   | RaiseIx IxRange
---   | AllInIx IxRange
---   | BetIx IxRange
---   | RaiseOrAllInIx IxRange
---   | CheckIx
---   | CallIx
---   | FoldIx
---   | LeaveIx
---   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 numInput :: MonadWidget t m => m (Dynamic t Double)
 numInput = do
       fmap (read . T.unpack) . _inputElement_value <$> inputElement def

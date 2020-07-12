@@ -15,10 +15,11 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Frontend where
 
-import Control.Lens
+import Control.Lens hiding (ix)
 import Control.Monad
 import qualified Data.Text as T
 import qualified Data.Map as Map
@@ -31,7 +32,7 @@ import Obelisk.Generated.Static
 import Poker.Base
 import Poker.Range
 import Reflex.Dom.Core hiding (tabDisplay)
-import Common.Api
+import Common.Server.Api
 import Common.Route
 import "servant-snap" Servant
 import Servant.Reflex
@@ -39,6 +40,7 @@ import QueryInput
 import RangeDisplay
 import FileInput
 import ActionIxSelector
+import TabView
 
 whenLoaded :: forall t m. MonadWidget t m
            => [Dynamic t Bool]
@@ -79,16 +81,14 @@ frontend = Frontend
             headCM <- cmHead
             _ <- whenLoaded [headD, headCM] blank $ do
               text "hi"
-              (codeD, shapedHandD) <- mainPane
-              -- _ <- tabDisplay "" ""
-              --            (Map.fromList
-              --            [ ( RangeDisplay
-              --              , ("Range Display", Right <$> mainPane) )
-              --            , ( HistoryDisplay
-              --              , ("History Display", Left <$> blank) )
-              --            ])
-              display codeD
-              display shapedHandD
+              -- (codeD, shapedHandD) <- mainPane
+              _ <- tabDisplay "" ""
+                         (Map.fromList
+                         [ ( RangeDisplay
+                           , ("Range Display", Right <$> mainPane) )
+                         , ( HistoryDisplay
+                           , ("History Display", Left <$> blank) )
+                         ])
               pure ()
             pure ()
           pure ()
@@ -179,21 +179,13 @@ runQuery
   -> Event t ()
   -> m (Event t
         (ReqResult () (Range Holding [PlayerActionValue])))
-runQuery = let (runQuery' :<|> _ :<|> _) = myClient
-           in runQuery'
-
 loadHands
   :: forall t m. MonadWidget t m
   => Dynamic t (QParam [Char])
   -> Event t ()
   -> m (Event t (ReqResult () ()))
-loadHands = let (_ :<|> loadHands' :<|> _) = myClient
-            in loadHands'
+(runQuery :<|> loadHands) = myClient
 
-getEcho
-  :: forall t m. MonadWidget t m =>
-  (Event t () -> m (Event t (ReqResult () T.Text)))
-(_ :<|> _ :<|> getEcho) = myClient
       -- prerender_ (text "My Prerender") $ do
       --   headD <- fileHead
       --   headCM <- cmHead

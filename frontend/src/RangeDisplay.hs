@@ -28,6 +28,7 @@ import Data.List.Split
 import Control.Monad.Fix
 import qualified Data.Map as Map
 import Data.Traversable
+import Common.Util
 
 initialRange :: Range ShapedHand Double
 initialRange = Range $ Map.empty
@@ -61,6 +62,29 @@ mkRangeCell :: MonadWidget t m => Dynamic t Double -> Text -> m (Element EventRe
 mkRangeCell freq cellText = do
             elDynAttr' "td" (cellAttrs <$> freq) $
               elAttr' "div" attrs (cellTable $ cellText)
+  where
+    cellTable :: MonadWidget t m => Text -> m ()
+    cellTable hand = elAttr "div" ("style" =: "font-size: 20px") $ text hand
+    attrs :: Map.Map Text Text
+    attrs = "style" =: "vertical-align: top"
+    cellAttrs :: Double -> Map.Map T.Text T.Text
+    cellAttrs freq' =
+                  "style" =: T.intercalate ";"
+                      [ "overflow: hidden"
+                      , "background-image: " <> cellBackground freq'
+                      , "white-space: nowrap"
+                      , "vertical-align: top"
+                      , "width: " <> tshow rangeCellSize <> "px"
+                      , "height: " <> tshow rangeCellSize <> "px"
+                      ]
+    cellBackground :: Double -> T.Text
+    cellBackground ((100 -) -> freq') = mconcat
+                                        [ "linear-gradient(lightgrey 0%,"
+                                        , "lightgrey " <> tshow freq' <> "%,"
+                                        , "green " <> tshow freq' <> "%,"
+                                        , "green 100%)"
+                                        ]
+
 
 holdingTable :: forall t m. (Reflex t, MonadWidget t m)
               => Dynamic t ShapedHand
@@ -95,40 +119,6 @@ holdingTable shD mainRangeD = shD <&> \sh ->
                   , s2 <- listSuit
                   , s1 /= s2
                   ]
-cellTable :: MonadWidget t m => Text -> m ()
-cellTable hand = elAttr "div" ("style" =: "font-size: 20px") $ text hand
-
-attrs :: Map.Map Text Text
-attrs = "style" =: "vertical-align: top"
-
-cellBackground :: Double -> T.Text
-cellBackground ((100 -) -> freq) = mconcat
-                                    -- [ "linear-gradient("
-                                    -- , "lightgrey 0%,"
-                                    -- , "lightgrey " <> tshow freq <> "%)"
-                                    -- ]
-                                    [ "linear-gradient("
-                                    , "lightgrey 0%,"
-                                    , "lightgrey " <> tshow freq <> "%,"
-                                    , "green " <> tshow freq <> "%,"
-                                    , "green 100%)"
-                                    ]
-cellAttrs :: Double -> Map.Map T.Text T.Text
-cellAttrs freq =
-              "style" =: T.intercalate ";"
-                  [ "overflow: hidden"
-                  , "background-image: " <> cellBackground freq
-                  , "white-space: nowrap"
-                  , "vertical-align: top"
-                  , "width: " <> tshow rangeCellSize <> "px"
-                  , "height: " <> tshow rangeCellSize <> "px"
-                  ]
-
-tshow :: Show a => a -> T.Text
-tshow = T.pack . show
-
-listEnum :: (Enum a) => [a]
-listEnum = enumFrom (toEnum 0)
 
 allRanks :: [Rank]
 allRanks = reverse listEnum
