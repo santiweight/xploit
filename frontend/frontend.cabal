@@ -6,11 +6,19 @@ build-type: Simple
 library
   hs-source-dirs: src
   build-depends: base
+               , aeson
                , common
+               , containers
                , exploit-poker
-               , obelisk-frontend
-               , obelisk-route
                , jsaddle
+               , jsaddle-dom
+               , lens
+               , obelisk-executable-config-lookup
+               , obelisk-frontend
+               , obelisk-generated-static
+               , obelisk-route
+               , poker-base
+               , reflex
                , reflex-dom
                , reflex-fileapi
                , reflex-dom
@@ -18,11 +26,16 @@ library
                , reflex-fileapi
                , reflex-utils
                , reflex-codemirror
+               , servant-snap
                , servant-reflex
-               , obelisk-executable-config-lookup
-               , obelisk-generated-static
+               , split
                , text
   exposed-modules:
+    ActionIxSelector
+    FileInput
+    QueryInput
+    RangeDisplay
+    TabView
     Frontend
   ghc-options: -Wall
 
@@ -31,6 +44,8 @@ executable frontend
   hs-source-dirs: src-bin
   build-depends: base
                , common
+               , jsaddle-dom
+               , poker-base
                , obelisk-frontend
                , obelisk-route
                , reflex-dom

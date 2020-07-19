@@ -16,22 +16,38 @@
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 
 module Frontend where
 
 import Control.Lens hiding (ix)
 import Control.Monad
 import qualified Data.Text as T
+import Data.Text (Text)
 import qualified Data.Map as Map
 import Reflex.Dom.Class
+import Reflex.Class
 import Prelude hiding (mapM, mapM_, sequence, sequence_)
 import Reflex
 import Obelisk.Frontend
 import Obelisk.Route
+import Obelisk.Route.Frontend
 import Obelisk.Generated.Static
 import Poker.Base
 import Poker.Range
+import Data.Map (Map)
+import Poker.Game.Types
+import Poker.Filter.Eval.Types
 import Reflex.Dom.Core hiding (tabDisplay)
+import Reflex.Dom hiding (tabDisplay)
+import           JSDOM.EventM      (on)
+import           JSDOM.FileReader  (FileReader, newFileReader, readAsText, readAsDataURL, load
+                                       , getResult)
+import JSDOM.Types (File)
+import           Language.Javascript.JSaddle
+
+import Data.Maybe hiding (mapMaybe)
+
 import Common.Server.Api
 import Common.Route
 import "servant-snap" Servant
@@ -74,25 +90,74 @@ frontend = Frontend
   { _frontend_head = do
       el "title" $ text "Obelisk Minimal Example"
       elAttr "link" ("href" =: static @"main.css" <> "type" =: "text/css" <> "rel" =: "stylesheet") blank
-  , _frontend_body = do
+  , _frontend_body = body
+  }
+
+body :: forall js t m route. ObeliskWidget js t route m => RoutedT t route m ()
+-- body :: _
+body = do
+        prerender_ blank $ do
+          filesD :: Dynamic t [File] <- el "div" $ fileInputElement
+          let filesE :: Event t [File] = updated $ filesD
+          let textEsE :: Event t [_ (Event t Text)] = filesE <&> fmap dataURLFileReader
+          textEsD <- fmap sequence <$> holdDyn [] textEsE
+          dyn textEsD
+          textEsD :: Dynamic t [_ (Event t Text)] <- holdDyn [] textEsE
+          -- let mkRequest :: (Prerender js t m, MonadWidget t m) => Event t Text -> m (Event t (ReqResult () ()))
+          let mkRequest contentEvent = do
+                        content :: Dynamic t (QParam [Char])
+                                <- fmap (QParamSome . T.unpack) <$> holdDyn  "" contentEvent
+                        loadHands content (void contentEvent)
+
+          let requests :: Dynamic t (RoutedT t route (Reflex.Dom.Client m) [Event t (ReqResult () ())])
+                       = textEsD <&> \fileContentsEsM -> (sequence $ (fileContentsEsM <&> (>>= mkRequest)))
+          -- -- requests
+          dyn requests :: RoutedT t route (Reflex.Dom.Client m) (Event t [Event t (ReqResult () ())])
+          -- dyn undefined :: RoutedT t route (Reflex.Dom.Client m) (Event t [Event t (ReqResult () ())])
+          pure ()
+        --       .
         el "div" $ do
           prerender_ blank $ do
             headD <- fileHead
             headCM <- cmHead
-            _ <- whenLoaded [headD, headCM] blank $ do
-              text "hi"
+            void . whenLoaded [headD, headCM] blank $ do
               -- (codeD, shapedHandD) <- mainPane
-              _ <- tabDisplay "" ""
+              void $ tabDisplay "" ""
                          (Map.fromList
                          [ ( RangeDisplay
                            , ("Range Display", Right <$> mainPane) )
                          , ( HistoryDisplay
                            , ("History Display", Left <$> blank) )
                          ])
-              pure ()
-            pure ()
-          pure ()
-  }
+
+safeHead [] = Nothing
+safeHead (x:xs) = Just x
+
+fileInputElement :: DomBuilder t m => m (Dynamic t [File])
+fileInputElement = do
+  ie <- inputElement $ def
+    & inputElementConfig_elementConfig . elementConfig_initialAttributes .~
+      ("type" =: "file"
+      <> "id" =: "filepicker"
+      <> "name" =: "fileList"
+      <> "webkitdirectory" =: ""
+      <> "multiple" =: "")
+  return (_inputElement_files ie)
+
+dataURLFileReader
+  :: ( DomBuilder t m
+     , TriggerEvent t m
+     , PerformEvent t m
+     , Prerender js t m
+     )
+  => File -> m (Event t Text)
+dataURLFileReader request = fmap switchDyn . prerender (return never) $ do
+  fileReader :: FileReader <- liftJSM newFileReader
+  readAsText fileReader (Just request) (Nothing :: Maybe Text)
+  e <- wrapDomEvent fileReader (`on` load) . liftJSM $ do
+    v <- getResult fileReader
+    (fromJSVal <=< toJSVal) v
+  return (fmapMaybe id e)
 
 mainPane
   :: forall js t m. (MonadWidget t m, Prerender js t m)
@@ -102,25 +167,30 @@ mainPane = do
           do
             rec
               actionIxD <- join <$> prerender (constDyn AnyIx <$ blank) actionIxSelector
-              let getMainRange :: Dynamic t (Range Holding [PlayerActionValue]
+              let getMainRange :: Dynamic t (Range Holding [BetAction]
                                     -> Range ShapedHand Double)
-                  getMainRange = getDisplayRange <$> actionIxD
-              codeD <- el "div" $ (cmBody =<< fileBody)
-              (handD, fullRangeD) <- el "div" $ do
-                          handClickE <- mkRangeDisplay $ getMainRange <*> fullRangeD
+                  getMainRange = (getDisplayRange <$> actionIxD)
+              fileContentsDyn <- fileBody
+              codeD <- el "div" $ (cmBody fileContentsDyn)
+              (handD, fullRangesD) <- el "div" $ do
+                          handClickE <- mkRangeDisplay $ getMainRange <*> fullRangesD
                           handD' <- holdDyn acesHand handClickE
-                          fullRangeD' :: Dynamic t (Range Holding [PlayerActionValue])
-                                      <- holdDyn (Range Map.empty) successResultE
-                          pure (handD', fullRangeD')
+                          fullRangesD' :: Dynamic t (Range Holding [BetAction])
+                                      <- fmap (fromMaybe (Range Map.empty).fmap snd.safeHead.Map.assocs) <$> holdDyn (Map.empty) successResultE
+                          pure (handD', fullRangesD')
               _ <- el "div" $
-                dyn $ holdingTable handD (toHoldingFreqs <$> actionIxD <*> fullRangeD)
+                dyn $ holdingTable handD (toHoldingFreqs <$> actionIxD <*> fullRangesD)
               runE <- el "div" $ button "run"
               resultE <- runQuery (QParamSome . T.unpack <$> codeD) runE
-              let successResultE = mapMaybe reqSuccess resultE
+              let successResultE = mapMaybe reqSuccess $ resultE
+              -- let successResultE = mapMaybe getSuccess . mapMaybe reqSuccess $ resultE
+              -- let getSuccess = \case
+              --             Right (res) -> Just res
+              --             _ -> Nothing
             pure (codeD, handD)
   pure . bimap join join $ splitDynPure resD
   where
-    toHoldingFreqs :: ActionIx -> Range Holding [PlayerActionValue] -> Range Holding Double
+    toHoldingFreqs :: ActionIx -> Range Holding [BetAction] -> Range Holding Double
     toHoldingFreqs ix mainRange =
       mainRange
             & range . traverse %~ countFreqMatched (inIndex ix)
@@ -128,8 +198,8 @@ mainPane = do
     acesHand :: ShapedHand
     acesHand = ShapedHand (Ace, Ace) Pair
     groupByShape
-      :: Range Holding [PlayerActionValue]
-      -> Range ShapedHand [PlayerActionValue]
+      :: Range Holding [BetAction]
+      -> Range ShapedHand [BetAction]
     groupByShape rang = Range . Map.fromList $
           ffor allShapedHands $ \shapedHand ->
             let holdings = shapeToCombos shapedHand
@@ -142,7 +212,7 @@ mainPane = do
       (length $ filter pred ls, length ls)
     getDisplayRange
       :: ActionIx
-      -> Range Holding [PlayerActionValue]
+      -> Range Holding [BetAction]
       -> Range ShapedHand Double
     getDisplayRange ix mainRange =
           groupByShape mainRange
@@ -160,59 +230,24 @@ myClient = client (Proxy :: Proxy PokerAPI)
                   (Proxy :: Proxy ())
                   (constDyn (BasePath "/"))
 
--- getAdd
---   :: forall t m. MonadWidget t m =>
---   (Dynamic t (Either T.Text Integer)
---                        -> Dynamic t (Either T.Text Integer)
---                        -> Event t ()
---                        -> m (Event t (ReqResult () Integer)))
--- getSub
---   :: forall t m. MonadWidget t m =>
---   (Dynamic t (Either T.Text Integer)
---   -> Dynamic t (Either T.Text Integer)
+-- runQuery
+--   :: MonadWidget t m
+--   => Dynamic t (QParam [Char])
 --   -> Event t ()
---   -> m (Event t (ReqResult () Integer)))
-
+--   -> m (Event t
+--         (ReqResult () (Either (Either GameErrorBundle EvalErr) (Map.Map String (Range Holding [BetAction])))))
 runQuery
   :: MonadWidget t m
   => Dynamic t (QParam [Char])
   -> Event t ()
   -> m (Event t
-        (ReqResult () (Range Holding [PlayerActionValue])))
+        (ReqResult () (Map.Map String (Range Holding [BetAction]))))
 loadHands
   :: forall t m. MonadWidget t m
   => Dynamic t (QParam [Char])
   -> Event t ()
   -> m (Event t (ReqResult () ()))
-(runQuery :<|> loadHands) = myClient
-
-      -- prerender_ (text "My Prerender") $ do
-      --   headD <- fileHead
-      --   headCM <- cmHead
-      --   whenLoaded [headD, headCM] blank $ do
-      --     tabDisplay "" "" $
-      --       Map.fromList
-      --       [ (1,
-      --         ("Query Editor", do
-      --                 el "div" $ do
-      --                       dynCode <- fileBody
-      --                       cmCode <- cmBody dynCode
-      --                       dynText (fmap T.reverse cmCode)
-      --         ))
-      --       , (2,
-      --         ("Range Display",
-      --           prerender_ blank $ do
-      --             el "div" $ do
-      --                 let gs = constDyn initialRange
-      --                 handClickE <- mkRangeDisplay gs
-      --                 let tshow = T.pack . show
-      --                 dynHand <- holdDyn (ShapedHand (Ace, Ace) Pair) handClickE -- fmap T.pack . fmap show . join $
-      --                 dynText $ fmap tshow $ dynHand
-      --                 return ()
-      --           ))
-      --       ]
-      --     pure ()
-      --   pure ()
+(runQuery :<|> (loadHands :<|> addHandFileContents) :<|> doEcho) = myClient
 
       -- elAttr "img" ("src" =: static @"obelisk.jpg") blank
       -- el "div" $ do
