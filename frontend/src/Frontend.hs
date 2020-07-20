@@ -23,7 +23,6 @@ module Frontend where
 import Control.Lens hiding (ix)
 import Control.Monad
 import qualified Data.Text as T
-import Data.Text (Text)
 import qualified Data.Map as Map
 import Reflex.Dom.Class
 import Reflex.Class
@@ -35,22 +34,14 @@ import Obelisk.Route.Frontend
 import Obelisk.Generated.Static
 import Poker.Base
 import Poker.Range
-import Data.Map (Map)
-import Poker.Game.Types
-import Poker.Filter.Eval.Types
-import Reflex.Dom.Core hiding (tabDisplay)
 import Reflex.Dom hiding (tabDisplay)
-import           JSDOM.EventM      (on)
-import           JSDOM.FileReader  (FileReader, newFileReader, readAsText, readAsDataURL, load
-                                       , getResult)
-import JSDOM.Types (File)
-import           Language.Javascript.JSaddle
 
 import Data.Maybe hiding (mapMaybe)
 
+import Data.Proxy
 import Common.Server.Api
 import Common.Route
-import "servant-snap" Servant
+import Servant.API
 import Servant.Reflex
 import QueryInput
 import RangeDisplay
@@ -97,22 +88,28 @@ body :: forall js t m route. ObeliskWidget js t route m => RoutedT t route m ()
 -- body :: _
 body = do
         prerender_ blank $ do
-          filesD :: Dynamic t [File] <- el "div" $ fileInputElement
-          let filesE :: Event t [File] = updated $ filesD
-          let textEsE :: Event t [_ (Event t Text)] = filesE <&> fmap dataURLFileReader
-          textEsD <- fmap sequence <$> holdDyn [] textEsE
-          dyn textEsD
-          textEsD :: Dynamic t [_ (Event t Text)] <- holdDyn [] textEsE
+          echoE <- button "echo"
+          resE <- doEcho echoE
+          resD <- holdDyn ("") (fromMaybe ("") . reqFailure <$> resE)
+          dynText resD
+          -- filesD :: Dynamic t [File] <- el "div" $ fileInputElement
+          -- let filesE :: Event t [File] = updated $ filesD
+          -- let textEsE :: Event t
+          --                  [RoutedT t route (Reflex.Dom.Client m) (Event t Text)]
+          --             = filesE <&> fmap dataURLFileReader
+          -- textEsD <- fmap sequence <$> holdDyn [] textEsE
+          -- _ <- dyn textEsD
+          -- textEsD :: Dynamic t [_ (Event t Text)] <- holdDyn [] textEsE
           -- let mkRequest :: (Prerender js t m, MonadWidget t m) => Event t Text -> m (Event t (ReqResult () ()))
-          let mkRequest contentEvent = do
-                        content :: Dynamic t (QParam [Char])
-                                <- fmap (QParamSome . T.unpack) <$> holdDyn  "" contentEvent
-                        loadHands content (void contentEvent)
+          -- let mkRequest contentEvent = do
+          --               content :: Dynamic t (QParam [Char])
+          --                       <- fmap (QParamSome . T.unpack) <$> holdDyn  "" contentEvent
+          --               loadHands content (void contentEvent)
 
-          let requests :: Dynamic t (RoutedT t route (Reflex.Dom.Client m) [Event t (ReqResult () ())])
-                       = textEsD <&> \fileContentsEsM -> (sequence $ (fileContentsEsM <&> (>>= mkRequest)))
-          -- -- requests
-          dyn requests :: RoutedT t route (Reflex.Dom.Client m) (Event t [Event t (ReqResult () ())])
+          -- let requests :: Dynamic t (RoutedT t route (Reflex.Dom.Client m) [Event t (ReqResult () ())])
+          --              = textEsD <&> \fileContentsEsM -> (sequence $ (fileContentsEsM <&> (>>= mkRequest)))
+          -- -- -- requests
+          -- _ <- dyn requests :: RoutedT t route (Reflex.Dom.Client m) (Event t [Event t (ReqResult () ())])
           -- dyn undefined :: RoutedT t route (Reflex.Dom.Client m) (Event t [Event t (ReqResult () ())])
           pure ()
         --       .
@@ -130,34 +127,35 @@ body = do
                            , ("History Display", Left <$> blank) )
                          ])
 
+safeHead :: [a] -> Maybe a
 safeHead [] = Nothing
-safeHead (x:xs) = Just x
+safeHead (x:_) = Just x
 
-fileInputElement :: DomBuilder t m => m (Dynamic t [File])
-fileInputElement = do
-  ie <- inputElement $ def
-    & inputElementConfig_elementConfig . elementConfig_initialAttributes .~
-      ("type" =: "file"
-      <> "id" =: "filepicker"
-      <> "name" =: "fileList"
-      <> "webkitdirectory" =: ""
-      <> "multiple" =: "")
-  return (_inputElement_files ie)
+-- fileInputElement :: DomBuilder t m => m (Dynamic t [File])
+-- fileInputElement = do
+--   ie <- inputElement $ def
+--     & inputElementConfig_elementConfig . elementConfig_initialAttributes .~
+--       ("type" =: "file"
+--       <> "id" =: "filepicker"
+--       <> "name" =: "fileList"
+--       <> "webkitdirectory" =: ""
+--       <> "multiple" =: "")
+--   return (_inputElement_files ie)
 
-dataURLFileReader
-  :: ( DomBuilder t m
-     , TriggerEvent t m
-     , PerformEvent t m
-     , Prerender js t m
-     )
-  => File -> m (Event t Text)
-dataURLFileReader request = fmap switchDyn . prerender (return never) $ do
-  fileReader :: FileReader <- liftJSM newFileReader
-  readAsText fileReader (Just request) (Nothing :: Maybe Text)
-  e <- wrapDomEvent fileReader (`on` load) . liftJSM $ do
-    v <- getResult fileReader
-    (fromJSVal <=< toJSVal) v
-  return (fmapMaybe id e)
+-- dataURLFileReader
+--   :: ( DomBuilder t m
+--      , TriggerEvent t m
+--      , PerformEvent t m
+--      , Prerender js t m
+--      )
+--   => File -> m (Event t Text)
+-- dataURLFileReader request = fmap switchDyn . prerender (return never) $ do
+--   fileReader :: FileReader <- liftJSM newFileReader
+--   readAsText fileReader (Just request) (Nothing :: Maybe Text)
+--   e <- wrapDomEvent fileReader (`on` load) . liftJSM $ do
+--     v <- getResult fileReader
+--     (fromJSVal <=< toJSVal) v
+--   return (fmapMaybe id e)
 
 mainPane
   :: forall js t m. (MonadWidget t m, Prerender js t m)
@@ -228,7 +226,7 @@ myClient :: forall t m. MonadWidget t m => Servant.Reflex.Client t m PokerAPI ()
 myClient = client (Proxy :: Proxy PokerAPI)
                   (Proxy :: Proxy m)
                   (Proxy :: Proxy ())
-                  (constDyn (BasePath "/"))
+                  (constDyn (BaseFullUrl Http "localhost" 8000 ""))
 
 -- runQuery
 --   :: MonadWidget t m
@@ -236,6 +234,9 @@ myClient = client (Proxy :: Proxy PokerAPI)
 --   -> Event t ()
 --   -> m (Event t
 --         (ReqResult () (Either (Either GameErrorBundle EvalErr) (Map.Map String (Range Holding [BetAction])))))
+doEcho :: MonadWidget t m
+  => Event t ()
+  -> m (Event t (ReqResult () ()))
 runQuery
   :: MonadWidget t m
   => Dynamic t (QParam [Char])
@@ -255,3 +256,10 @@ loadHands
       --   case exampleConfig of
       --     Nothing -> text "No config file found in config/common/example"
       --     Just s -> text $ T.decodeUtf8 s
+
+runUrl query = "http://localhost:8000/api/run?query=" <> query
+
+-- runQuery query = do
+--   responses <- performRequestAsync $ toRequest <$> queries
+--   return $ view xhrResponse_responseText <$> responses
+--   where toRequest query = XhrRequest "GET" (url query) def

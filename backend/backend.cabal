@@ -9,14 +9,58 @@ library
     buildable: False
   build-depends: base
                , common
+               , poker-base
+               , exploit-poker
+               , bytestring
+               , containers
+               , esqueleto
                , frontend
-               , polysemy
+               , lens
+               , monad-logger
+               , mtl
+               , persistent
+               , persistent-postgresql
+               , persistent-template
                , obelisk-backend
-               , servant-snap
                , obelisk-route
+               , resourcet
+               , serialise
+               , servant-snap
+               , snap-core
+               , text
+               , time
   exposed-modules:
     Backend
+    Server.Base
+    Server.Instances
+    Server.Handler
+    Server.Query
   ghc-options: -Wall
+  default-extensions:
+      ConstraintKinds
+    , DataKinds
+    , DeriveDataTypeable
+    , DeriveFunctor
+    , DeriveGeneric
+    , DeriveTraversable
+    , EmptyCase
+    , FlexibleContexts
+    , GADTs
+    , LambdaCase
+    , LiberalTypeSynonyms
+    , OverloadedStrings
+    , PartialTypeSignatures
+    , PatternSynonyms
+    , PackageImports
+    , PolyKinds
+    , RankNTypes
+    , ScopedTypeVariables
+    , StandaloneDeriving
+    , TypeApplications
+    , TypeOperators
+    , TypeFamilies
+    , UnicodeSyntax
+    , TemplateHaskell
 
 executable backend
   main-is: main.hs
@@ -27,5 +71,9 @@ executable backend
                , backend
                , common
                , frontend
+               , reflex-dom
                , servant-snap
                , obelisk-backend
+               , obelisk-frontend
+               , obelisk-route
+  ghc-options: -dynamic -threaded

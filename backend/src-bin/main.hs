@@ -1,9 +1,20 @@
 import Backend
 import Frontend
 import Obelisk.Backend
-import API.Server
+import Common.Server.Api
+import Server.Base
+import Frontend
+import Common.Route
+import Obelisk.Frontend
+import Obelisk.Route.Frontend
+import Reflex.Dom
+import Control.Concurrent
 
 main :: IO ()
 main = do
-  forkIO $ runServer 8081
+  -- migrateDB
+  -- print "migration done"
   runBackend backend frontend
+  -- let Right validFullEncoder = checkEncoder fullRouteEncoder
+  -- run $ runFrontend validFullEncoder frontend
+  pure ()

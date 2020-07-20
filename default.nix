@@ -59,10 +59,6 @@ in
 project ./. ({ pkgs, ... }: {
   inherit withHoogle;
   overrides = self: super: {
-    # polysemy-plugin = pkgs.haskell.lib.dontCheck ((import <nixpkgs> {}).haskellPackages.callHackage "polysemy-plugin" "0.2.5.0" {});
-    # polysemy-plugin = ((import <nixpkgs> {}).haskellPackages.callHackage "polysemy-plugin" "0.2.5.0" {});
-    # polysemy-plugin = reflex-platform.ghc.dontCheck (self.callHackage "polysemy-plugin" "0.2.5.0" {});
-    # servant-snap = servantSnapSrc;
     polysemy-plugin = pkgs.haskell.lib.dontCheck (self.callCabal2nix "polysemy-plugin" polysemyPluginSrc {});
     polysemy = pkgs.haskell.lib.dontCheck (self.callCabal2nix "polysemy" polysemySrc {});
     hspec-snap     = pkgs.haskell.lib.dontCheck (self.callHackage "hspec-snap" "1.0.1.0" { });
@@ -76,13 +72,14 @@ project ./. ({ pkgs, ... }: {
     reflex-fileapi = reflexFileApiSrc;
     reflex-codemirror = reflexCodeMirrorSrc;
     exploit-poker = ~/exploit-haskell;
+    poker-base = ~/haskell-poker;
     reflex-utils = reflexUtilsSrc;
   };
 
   # android.applicationId = "systems.obsidian.obelisk.examples.minimal";
   # android.displayName = "Obelisk Minimal Example";
-  ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
-  ios.bundleName = "Obelisk Minimal Example";
+  # ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
+  # ios.bundleName = "Obelisk Minimal Example";
 
   shellToolOverrides = self: super: {
     haskell-ide-engine = all-hies.selection { selector = p: { inherit (p) ghc865; }; };

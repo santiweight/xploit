@@ -9,7 +9,6 @@ library
                , aeson
                , common
                , containers
-               , exploit-poker
                , jsaddle
                , jsaddle-dom
                , lens
@@ -26,7 +25,7 @@ library
                , reflex-fileapi
                , reflex-utils
                , reflex-codemirror
-               , servant-snap
+               , servant
                , servant-reflex
                , split
                , text
@@ -38,6 +37,31 @@ library
     TabView
     Frontend
   ghc-options: -Wall
+  -- default-extensions:
+  --     ConstraintKinds
+  --   , DataKinds
+  --   , DeriveDataTypeable
+  --   , DeriveFunctor
+  --   , DeriveGeneric
+  --   , DeriveTraversable
+  --   , EmptyCase
+  --   , FlexibleContexts
+  --   , GADTs
+  --   , LambdaCase
+  --   , LiberalTypeSynonyms
+  --   , OverloadedStrings
+  --   , PartialTypeSignatures
+  --   , PatternSynonyms
+  --   , PackageImports
+  --   , PolyKinds
+  --   , RankNTypes
+  --   , ScopedTypeVariables
+  --   , StandaloneDeriving
+  --   , TypeApplications
+  --   , TypeOperators
+  --   , TypeFamilies
+  --   , UnicodeSyntax
+  --   , TemplateHaskell
 
 executable frontend
   main-is: main.hs
@@ -49,8 +73,8 @@ executable frontend
                , obelisk-frontend
                , obelisk-route
                , reflex-dom
+               , servant
                , servant-reflex
-               , exploit-poker
                , obelisk-generated-static
                , frontend
   --TODO: Make these ghc-options optional
