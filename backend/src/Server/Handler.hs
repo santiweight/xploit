@@ -43,16 +43,6 @@ echoServer = liftIO $ print @String "echoing" >> pure ()
 
 addHandsServer :: MonadSnap m => Server LoadHandHAPI l m
 addHandsServer fpMay = do
-          -- liftIO $ print "adding contents:"
-          -- liftIO $ print fpMay
-          -- case fpMay of
-          --   Just contents ->
-          --     parseString contents & \case
-          --       Right hands -> do
-          --         liftIO $ forM_ hands insertHand
-          --         pure ()
-          --       Left _ -> throwError err401
-          --   Nothing -> throwError err400
       liftIO $ print @String "adding hands to server"
       case fpMay of
         Just fp -> do
@@ -64,43 +54,28 @@ addHandsServer fpMay = do
 queryServer :: MonadSnap m => Server QueryAPI l m
 queryServer = queryHandler
   where
-    -- queryHandler :: Maybe FilePath -> Handler
-    --                    (Range ShapedHand (Range Holding [PlayerActionValue]))
-                      --  (Range ShapedHand x/100)
     queryHandler
       :: MonadSnap m
       => Maybe String
       -> m (Map String (Range Holding [BetAction]))
     queryHandler (Just queryStr) = do
       hands <- liftIO $ runDb selectAllHands
-      -- queryStr <- liftIO $ readFile path
       let query' = forget . parseQuery $ queryStr
-      -- let resultRange =
       let results = runQuery query' <$> hands
-      -- let noErrorResults = filter isEmpty <$> results
       let firstResults = fromMaybe (Right $ Map.empty)
                        . safeHead
                        . filter isEmpty <$> results
-      -- liftIO $ print noErrorResults
-      -- liftIO $ print results
       let noErrorResults :: [Map String (Map Holding [BetAction])]
                          = mapMaybe (preview _Right) firstResults
       let noErrorResult = foldr (Map.unionWith unionRanges) (Map.empty) noErrorResults
-      -- -- let result :: Either
-      -- --            (Either GameErrorBundle EvalErr)
-      -- --            (Map String (Range Holding [BetAction]))
-      -- --            = fmap (fmap Range) $ foldr accResults (Right Map.empty) firstResults
-      -- -- liftIO $ print result
-      -- -- liftIO $ print results
-      liftIO $ print firstResults
+      liftIO $ print "results"
+      -- liftIO $ print firstResults
       -- liftIO $ print noErrorResults
-      -- liftIO $ print noErrorResult
+      liftIO $ print noErrorResult
       -- pure result
       pure $ Range <$> noErrorResult
-      -- pure Map.empty
-
-      -- pure resultRange
     queryHandler _ = throwError err400
+
     isEmpty (Right _) = True
     isEmpty _ = False
     -- isEmpty (Right m) = m /= Map.empty

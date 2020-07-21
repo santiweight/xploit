@@ -21,7 +21,9 @@
 module Frontend where
 
 import Control.Lens hiding (ix)
+import Data.Witherable (catMaybes)
 import Control.Monad
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Map as Map
 import Reflex.Dom.Class
@@ -36,7 +38,8 @@ import Poker.Base
 import Poker.Range
 import Reflex.Dom hiding (tabDisplay)
 
-import Data.Maybe hiding (mapMaybe)
+import Data.Maybe (fromMaybe)
+import Network.URI.Encode
 
 import Data.Proxy
 import Common.Server.Api
@@ -90,7 +93,7 @@ body = do
         prerender_ blank $ do
           echoE <- button "echo"
           resE <- doEcho echoE
-          resD <- holdDyn ("") (fromMaybe ("") . reqFailure <$> resE)
+          resD <- holdDyn ("") (fromMaybe ("") <$> resE)
           dynText resD
           -- filesD :: Dynamic t [File] <- el "div" $ fileInputElement
           -- let filesE :: Event t [File] = updated $ filesD
@@ -179,8 +182,11 @@ mainPane = do
               _ <- el "div" $
                 dyn $ holdingTable handD (toHoldingFreqs <$> actionIxD <*> fullRangesD)
               runE <- el "div" $ button "run"
-              resultE <- runQuery (QParamSome . T.unpack <$> codeD) runE
-              let successResultE = mapMaybe reqSuccess $ resultE
+              response <- runQuery codeD runE
+              -- dynText =<< holdDyn "no result" (fromMaybe "empty response" <$> traceEventWith show response)
+              -- resultE <- runQuery (QParamSome . T.unpack <$> codeD) runE
+              -- let successResultE = mapMaybe reqSuccess $ resultE
+              let successResultE :: Event t _ = traceEventWith (const "response got") $ catMaybes response
               -- let successResultE = mapMaybe getSuccess . mapMaybe reqSuccess $ resultE
               -- let getSuccess = \case
               --             Right (res) -> Just res
@@ -228,27 +234,24 @@ myClient = client (Proxy :: Proxy PokerAPI)
                   (Proxy :: Proxy ())
                   (constDyn (BaseFullUrl Http "localhost" 8000 ""))
 
+-- -- runQuery
+-- --   :: MonadWidget t m
+-- --   => Dynamic t (QParam [Char])
+-- --   -> Event t ()
+-- --   -> m (Event t
+-- --         (ReqResult () (Either (Either GameErrorBundle EvalErr) (Map.Map String (Range Holding [BetAction])))))
 -- runQuery
 --   :: MonadWidget t m
 --   => Dynamic t (QParam [Char])
 --   -> Event t ()
 --   -> m (Event t
---         (ReqResult () (Either (Either GameErrorBundle EvalErr) (Map.Map String (Range Holding [BetAction])))))
-doEcho :: MonadWidget t m
-  => Event t ()
-  -> m (Event t (ReqResult () ()))
-runQuery
-  :: MonadWidget t m
-  => Dynamic t (QParam [Char])
-  -> Event t ()
-  -> m (Event t
-        (ReqResult () (Map.Map String (Range Holding [BetAction]))))
-loadHands
-  :: forall t m. MonadWidget t m
-  => Dynamic t (QParam [Char])
-  -> Event t ()
-  -> m (Event t (ReqResult () ()))
-(runQuery :<|> (loadHands :<|> addHandFileContents) :<|> doEcho) = myClient
+--         (ReqResult () (Map.Map String (Range Holding [BetAction]))))
+-- loadHands
+--   :: forall t m. MonadWidget t m
+--   => Dynamic t (QParam [Char])
+--   -> Event t ()
+--   -> m (Event t (ReqResult () ()))
+-- (runQuery :<|> (loadHands :<|> addHandFileContents) :<|> doEcho) = myClient
 
       -- elAttr "img" ("src" =: static @"obelisk.jpg") blank
       -- el "div" $ do
@@ -259,7 +262,23 @@ loadHands
 
 runUrl query = "http://localhost:8000/api/run?query=" <> query
 
--- runQuery query = do
---   responses <- performRequestAsync $ toRequest <$> queries
---   return $ view xhrResponse_responseText <$> responses
---   where toRequest query = XhrRequest "GET" (url query) def
+echoUrl = "http://localhost:8000/api/echo"
+
+doEcho :: MonadWidget t m
+  => Event t ()
+  -> m (Event t (Maybe Text))
+doEcho echoE = do
+  reponses <- performRequestAsync $ XhrRequest "GET" echoUrl def <$ echoE
+  return $ view (xhrResponse_responseText) <$> reponses
+
+runQuery
+  :: MonadWidget t m
+  => Dynamic t Text
+  -> Event t ()
+  -> m (Event t (Maybe (Map.Map String (Range Holding [BetAction]))))
+runQuery queryD event = do
+  -- reponses <- performRequestAsync $ XhrRequest "GET" echoUrl def <$ event
+  -- return $ view (xhrResponse_responseText) <$> reponses
+  responses <- performRequestAsync $ traceEventWith show $ toRequest . encodeText <$> tagPromptlyDyn queryD event
+  return . fmap (Reflex.Dom.decodeText =<<) $ view xhrResponse_responseText <$> responses
+  where toRequest query = XhrRequest "GET" (runUrl query) def

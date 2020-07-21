@@ -29,6 +29,8 @@ library
                , servant-reflex
                , split
                , text
+               , uri-encode
+               , witherable
   exposed-modules:
     ActionIxSelector
     FileInput
@@ -37,6 +39,8 @@ library
     TabView
     Frontend
   ghc-options: -Wall
+  if os(darwin)
+     ghc-options: -dynamic
   -- default-extensions:
   --     ConstraintKinds
   --   , DataKinds
