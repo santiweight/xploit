@@ -66,13 +66,9 @@ project ./. ({ ... }: {
     reflex-jexcel = reflexJExcelSrc;
     reflex-fileapi = reflexFileApiSrc;
     reflex-codemirror = reflexCodeMirrorSrc;
-    exploit-poker = ~/exploit-haskell;
-    poker-base = ~/haskell-poker;
+    exploit-poker = ./deps/exploit-haskell;
+    poker-base = ./deps/haskell-poker;
     reflex-utils = reflexUtilsSrc;
   };
 
-  android.applicationId = "systems.obsidian.obelisk.examples.minimal";
-  android.displayName = "Obelisk Minimal Example";
-  ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
-  ios.bundleName = "Obelisk Minimal Example";
 })
