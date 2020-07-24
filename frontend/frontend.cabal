@@ -1,0 +1,56 @@
+name: frontend
+version: 0.1
+cabal-version: >= 1.8
+build-type: Simple
+
+library
+  hs-source-dirs: src
+  build-depends: base
+               , aeson
+               , common
+               , containers
+               , jsaddle
+               , jsaddle-dom
+               , lens
+               , obelisk-executable-config-lookup
+               , obelisk-frontend
+               , obelisk-generated-static
+               , obelisk-route
+               , poker-base
+               , reflex
+               , reflex-dom
+               , reflex-fileapi
+               , reflex-dom
+               , reflex-jexcel
+               , reflex-fileapi
+               , reflex-utils
+               , reflex-codemirror
+               , servant
+               , servant-reflex
+               , split
+               , text
+               , uri-encode
+               , witherable
+  exposed-modules:
+    ActionIxSelector
+    FileInput
+    QueryInput
+    RangeDisplay
+    TabView
+    Frontend
+  ghc-options: -Wall
+
+executable frontend
+  main-is: main.hs
+  hs-source-dirs: src-bin
+  build-depends: base
+               , common
+               , obelisk-frontend
+               , obelisk-route
+               , reflex-dom
+               , obelisk-generated-static
+               , frontend
+  --TODO: Make these ghc-options optional
+  ghc-options: -threaded
+  if os(darwin)
+     ghc-options: -dynamic
