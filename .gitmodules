@@ -1,0 +1,3 @@
+[submodule "deps/exploit-haskell"]
+	path = deps/exploit-haskell
+	url = https://github.com/santiweight/exploit-haskell
