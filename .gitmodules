@@ -1,3 +1,6 @@
 [submodule "deps/exploit-haskell"]
 	path = deps/exploit-haskell
 	url = https://github.com/santiweight/exploit-haskell
+[submodule "deps/haskell-poker"]
+	path = deps/haskell-poker
+	url = https://github.com/santiweight/haskell-poker
