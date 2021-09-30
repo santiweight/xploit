@@ -1,0 +1,88 @@
+name: backend
+version: 0.1
+cabal-version: >= 1.8
+build-type: Simple
+
+library
+  hs-source-dirs: src
+  if impl(ghcjs)
+    buildable: False
+  build-depends: base
+               , directory
+               , dir-traverse
+               , common
+               , poker
+               , poker-game
+               , history-bovada
+               , xploit-query
+               , either
+               , bytestring
+               , containers
+               , esqueleto
+               , frontend
+               , lens
+               , megaparsec
+               , monad-logger
+               , mtl
+               , persistent
+               , persistent-postgresql
+               , persistent-template
+               , obelisk-backend
+               , obelisk-route
+               , resourcet
+               , safe-money
+               , safe-money-aeson
+               , safe-money-serialise
+               , serialise
+               , servant-snap
+               , snap-core
+               , text
+               , time
+  exposed-modules:
+    Backend
+    Server.Base
+    Server.Instances
+    Server.Handler
+    Server.Query
+  ghc-options: -Wall
+  default-extensions:
+      ConstraintKinds
+    , DataKinds
+    , DeriveDataTypeable
+    , DeriveFunctor
+    , DeriveGeneric
+    , DeriveTraversable
+    , EmptyCase
+    , FlexibleContexts
+    , GADTs
+    , LambdaCase
+    , LiberalTypeSynonyms
+    , OverloadedStrings
+    , PartialTypeSignatures
+    , PatternSynonyms
+    , PackageImports
+    , PolyKinds
+    , RankNTypes
+    , ScopedTypeVariables
+    , StandaloneDeriving
+    , TypeApplications
+    , TypeOperators
+    , TypeFamilies
+    , UnicodeSyntax
+    , TemplateHaskell
+
+executable backend
+  main-is: main.hs
+  hs-source-dirs: src-bin
+  if impl(ghcjs)
+    buildable: False
+  build-depends: base
+               , backend
+               , common
+               , frontend
+               , reflex-dom
+               , servant-snap
+               , obelisk-backend
+               , obelisk-frontend
+               , obelisk-route
+  ghc-options: -dynamic -threaded

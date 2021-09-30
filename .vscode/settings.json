@@ -1,0 +1,7 @@
+{
+  "nixEnvSelector.nixShellConfig": "${workspaceRoot}/shell.nix",
+  "nixEnvSelector.nixFile": "${workspaceRoot}/default.nix",
+  "files.watcherExclude": {
+    "**/target": true
+  }
+}

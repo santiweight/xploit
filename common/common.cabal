@@ -1,0 +1,56 @@
+name: common
+version: 0.1
+cabal-version: >= 1.2
+build-type: Simple
+
+library
+  hs-source-dirs: src
+  build-depends: base
+               , poker
+               , poker-game
+               , history-bovada
+               , xploit-query
+               , aeson
+               , bytestring
+               , containers
+               , lens
+               , mtl
+               , obelisk-route
+               , safe-money
+               , safe-money-aeson
+               , safe-money-serialise
+               , servant
+               , tasty-quickcheck
+               , text
+               , time
+  exposed-modules:
+    Common.DB.Instances
+    Common.Server.Api
+    Common.Route
+    Common.Util
+  ghc-options: -Wall
+  default-extensions:
+      ConstraintKinds
+    , DataKinds
+    , DeriveDataTypeable
+    , DeriveFunctor
+    , DeriveGeneric
+    , DeriveTraversable
+    , EmptyCase
+    , FlexibleContexts
+    , GADTs
+    , LambdaCase
+    , LiberalTypeSynonyms
+    , OverloadedStrings
+    , PartialTypeSignatures
+    , PatternSynonyms
+    , PackageImports
+    , PolyKinds
+    , RankNTypes
+    , ScopedTypeVariables
+    , StandaloneDeriving
+    , TypeApplications
+    , TypeOperators
+    , TypeFamilies
+    , UnicodeSyntax
+    , TemplateHaskell

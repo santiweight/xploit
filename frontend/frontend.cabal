@@ -1,0 +1,86 @@
+name: frontend
+version: 0.1
+cabal-version: >= 1.8
+build-type: Simple
+
+library
+  hs-source-dirs: src
+  build-depends: base
+               , aeson
+               , common
+               , containers
+               , history-bovada
+               , jsaddle
+               , jsaddle-dom
+               , lens
+               , obelisk-executable-config-lookup
+               , obelisk-frontend
+               , obelisk-generated-static
+               , obelisk-route
+               , poker
+               , poker-game
+               , reflex
+               , reflex-dom
+               , safe-money
+               , safe-money-aeson
+               , servant
+               , servant-reflex
+               , split
+               , text
+               , uri-encode
+               , witherable
+               , xploit-query
+  exposed-modules:
+    ActionIxSelector
+    FileInput
+    QueryInput
+    RangeDisplay
+    TabView
+    Frontend
+  ghc-options: -Wall
+  if os(darwin)
+     ghc-options: -dynamic
+  -- default-extensions:
+  --     ConstraintKinds
+  --   , DataKinds
+  --   , DeriveDataTypeable
+  --   , DeriveFunctor
+  --   , DeriveGeneric
+  --   , DeriveTraversable
+  --   , EmptyCase
+  --   , FlexibleContexts
+  --   , GADTs
+  --   , LambdaCase
+  --   , LiberalTypeSynonyms
+  --   , OverloadedStrings
+  --   , PartialTypeSignatures
+  --   , PatternSynonyms
+  --   , PackageImports
+  --   , PolyKinds
+  --   , RankNTypes
+  --   , ScopedTypeVariables
+  --   , StandaloneDeriving
+  --   , TypeApplications
+  --   , TypeOperators
+  --   , TypeFamilies
+  --   , UnicodeSyntax
+  --   , TemplateHaskell
+
+executable frontend
+  main-is: main.hs
+  hs-source-dirs: src-bin
+  build-depends: base
+               , common
+               , jsaddle-dom
+               , poker
+               , obelisk-frontend
+               , obelisk-route
+               , reflex-dom
+               , servant
+               , servant-reflex
+               , obelisk-generated-static
+               , frontend
+  --TODO: Make these ghc-options optional
+  ghc-options: -threaded
+  if os(darwin)
+     ghc-options: -dynamic

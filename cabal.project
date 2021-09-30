@@ -1,0 +1,8 @@
+optional-packages:
+  */*.cabal
+
+packages:
+  deps/base/poker.cabal
+  deps/xploit-query/xploit-query.cabal
+  deps/game/poker-game.cabal
+  deps/history-bovada/history-bovada.cabal

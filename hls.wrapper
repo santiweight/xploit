@@ -1,0 +1,1 @@
+ob shell -- ~/Downloads/haskell-language-server-8.6.5 --lsp
