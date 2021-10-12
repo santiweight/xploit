@@ -81,10 +81,10 @@ project ./. ({ pkgs, ... }: {
     # reflex-jexcel = reflexJExcelSrc;
     # reflex-fileapi = reflexFileApiSrc;
     # reflex-codemirror = reflexCodeMirrorSrc;
-    poker = deps/base;
+    poker-base = deps/base;
     poker-game = deps/game;
     xploit-query = deps/xploit-query;
-    history-bovada = deps/history-bovada ;
+    poker-histories = deps/poker-histories;
     # reflex-utils = reflexUtilsSrc;
   };
 

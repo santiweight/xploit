@@ -5,4 +5,4 @@ packages:
   deps/base/poker.cabal
   deps/xploit-query/xploit-query.cabal
   deps/game/poker-game.cabal
-  deps/history-bovada/history-bovada.cabal
+  deps/poker-histories/poker-histories.cabal

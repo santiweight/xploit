@@ -1,6 +1,0 @@
-cradle:
-  cabal:
-    - path: "./src"
-      component: "lib:frontend"
-    # - path: "./test"
-    #   component: "test:all-tests"

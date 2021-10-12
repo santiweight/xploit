@@ -11,9 +11,9 @@ library
                , directory
                , dir-traverse
                , common
-               , poker
+               , poker-base
                , poker-game
-               , history-bovada
+               , poker-histories
                , xploit-query
                , either
                , bytestring

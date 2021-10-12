@@ -17,116 +17,110 @@
 
 module RangeDisplay where
 
-import Control.Lens
-import Reflex.Dom
-import qualified Data.Text as T
-import Data.Text (Text)
-import Control.Monad
-import Poker.Range
-import Poker
-import Data.List.Split
-import Control.Monad.Fix
-import qualified Data.Map as Map
-import Data.Traversable
-import Common.Util
-import Poker.Utils (prettyText)
+import           BasicPrelude                   ( tshow )
+import qualified BasicPrelude                  as P
+import           Common.Route                   ( FrontendRoute )
+import           Control.Applicative            ( Const(Const) )
+import           Control.Lens                   ( Const
+                                                , Identity(Identity)
+                                                )
+import           Control.Monad
+-- import Data.List.Split
+import           Control.Monad.Fix
+import           Data.Functor                   ( (<&>) )
+import           Data.List.Extra                ( chunksOf )
+import qualified Data.Map                      as Map
+import           Data.Semigroup
+import qualified Data.Text                     as T
+import           Data.Text                      ( Text )
+import           Data.Traversable
+import           Obelisk.Frontend
+import           Obelisk.Route                  ( R )
+import           Poker
+import           Poker.Range
+import           Reflex.Dom              hiding ( Alt )
+import           Util                           ( execEventWriterT, execFirstEventWriterT )
+-- import Common.Util
 
 initialRange :: Range ShapedHand Double
-initialRange = Range $ Map.empty
+initialRange = Range Map.empty
 
 rangeCellSize :: Int
-rangeCellSize = 100
+rangeCellSize = 50
 
--- The game board, returns the coordinates of the clicked cell.
-mkRangeDisplay
-  :: ( DomBuilder t m
-     , MonadFix m
-     , PostBuild t m
-     , MonadHold t m
-     , Prerender js t m
-     , Reflex t
-     )
-  => Dynamic t (Range ShapedHand Double) -> m (Event t ShapedHand)
-mkRangeDisplay displayRangeD = do
-  fmap switchPromptlyDyn . prerender (never <$ blank) $ do
-    elAttr "table" (Map.empty) $ do
-      el "tbody" $ do
-        (fmap $ leftmost . join) . for allRanks $ \r1 ->
-          el "tr" $
-            for allRanks $ \r2 -> do
-              let hand = ranksToShapedHand r1 r2
-              (e, _) <- mkRangeCell (lookupOr hand 0 <$> displayRangeD) (prettyText hand)
-              pure $ hand <$ domEvent Click e
+rangeDisplay
+  :: (DomBuilder t m, ObeliskWidget js t (R FrontendRoute) m)
+  => Dynamic t (Range ShapedHand Double)
+  -> m (Event t ShapedHand)
+rangeDisplay displayRangeD = execFirstEventWriterT $ do
+  elClass "table" "range-table" $ el "tbody" $ forM_ allRanks $ \r1 ->
+    el "tr" $ for allRanks $ \r2 -> do
+      let hand = ranksToShapedHand r1 r2
+      tellEvent =<< rangeCell hand displayRangeD
+ where
+  listEnum = enumFrom (toEnum 0)
+  allRanks = reverse listEnum
+  ranksToShapedHand rowRank headerRank = case compare rowRank headerRank of
+    GT -> MkSuited rowRank headerRank
+    EQ -> MkPair rowRank
+    LT -> MkOffsuit headerRank rowRank
 
-mkRangeCell :: MonadWidget t m => Dynamic t Double -> Text -> m (Element EventResult (DomBuilderSpace m) t,
-                        (Element EventResult GhcjsDomSpace t, ()))
-mkRangeCell freq cellText = do
-            elDynAttr' "td" (cellAttrs <$> freq) $
-              elAttr' "div" attrs (cellTable $ cellText)
-  where
-    cellTable :: MonadWidget t m => Text -> m ()
-    cellTable hand = elAttr "div" ("style" =: "font-size: 20px") $ text hand
-    attrs :: Map.Map Text Text
-    attrs = "style" =: "vertical-align: top"
-    cellAttrs :: Double -> Map.Map T.Text T.Text
-    cellAttrs freq' =
-                  "style" =: T.intercalate ";"
-                      [ "overflow: hidden"
-                      , "background-image: " <> cellBackground freq'
-                      , "white-space: nowrap"
-                      , "vertical-align: top"
-                      , "width: " <> tshow rangeCellSize <> "px"
-                      , "height: " <> tshow rangeCellSize <> "px"
-                      ]
-    cellBackground :: Double -> T.Text
-    cellBackground ((100 -) -> freq') = mconcat
-                                        [ "linear-gradient(lightgrey 0%,"
-                                        , "lightgrey " <> tshow freq' <> "%,"
-                                        , "green " <> tshow freq' <> "%,"
-                                        , "green 100%)"
-                                        ]
+holdingDisplay
+  :: (ObeliskWidget js t (R FrontendRoute) m)
+  => Dynamic t ShapedHand
+  -> Dynamic t (Range Hand Double)
+  -> m (Event t Hand)
+holdingDisplay shapedHandD mainRangeD = execFirstEventWriterT $ do
+  elClass "table" "range-table" $ do
+    el "tbody" $ do
+      dyn_ $ shapedHandD <&> \shapedHand -> do
+        forM_ (getHandRows shapedHand) $ \row -> do
+          el "tr" $ for row $ \holding -> do
+            tellEvent =<< rangeCell holding mainRangeD
+ where
+  getHandRows shapedHand =
+    chunksOf (getRowSize shapedHand) . listHands $ shapedHand
+  getRowSize = \case
+    MkOffsuit _ _ -> 4
+    MkSuited _ _ -> 2
+    MkPair    _ -> 3
+  listHands :: ShapedHand -> [Hand]
+  listHands = \case
+    MkSuited r1 r2 -> [ MkHand (Card r1 suit_) (Card r2 suit_) | suit_ <- allSuits ]
+    MkPair r ->
+      [ MkHand (Card r s1) (Card r s2)
+      | s1 <- allSuits
+      , s2 <- allSuits
+      , fromEnum s1 > fromEnum s2
+      ]
+    MkOffsuit r1 r2 ->
+      [ MkHand (Card r1 s1) (Card r2 s2)
+      | s1 <- allSuits
+      , s2 <- allSuits
+      , s1 /= s2
+      ]
+
+rangeCell
+  :: (DomBuilder t m, ObeliskWidget js t (R FrontendRoute) m, Show k, Ord k)
+  => k
+  -> Dynamic t (Range k Double)
+  -> m (Event t (First k))
+rangeCell hand rangeD = do
+  let freq = lookupOr hand 0 <$> rangeD
+  (e, _) <- elDynAttr' "td" (cellAttrs <$> freq) $ text (tshow hand)
+  pure $ First hand <$ domEvent Click e
+ where
+  cellAttrs freq' =
+    "style"
+      =: ("background-image: " <> cellBackground freq')
+      <> "class"
+      =: "range-cell"
+  cellBackground ((100 -) -> freq') = mconcat
+    [ "linear-gradient(lightgrey 0.0%,"
+    , "lightgrey " <> tshow freq' <> "%,"
+    , "green " <> tshow freq' <> "%,"
+    , "green 100%)"
+    ]
+  lookupOr k a (Range m) = Map.lookup k m & P.fromMaybe a
 
 
-holdingTable :: forall t m. (Reflex t, MonadWidget t m)
-              => Dynamic t ShapedHand
-              -> Dynamic t (Range Hand Double)
-              -> Dynamic t (m (Event t Hand))
-holdingTable shD mainRangeD = shD <&> \sh ->
-  let rowSize = getRowSize sh
-      holdingsRows = chunksOf rowSize . shapedHandToHands $ sh
-  in elAttr "table" (Map.empty) $ do
-      el "tbody" $ do
-        fmap (leftmost . join) . for holdingsRows $ \holdingRow ->
-          el "tr" $
-            for holdingRow $ \holding -> do
-              (e, _) <- mkRangeCell (lookupOr holding 0 <$> mainRangeD) (prettyText holding)
-              pure $ holding <$ domEvent Click e
-  where
-    getRowSize = \case
-                    MkOffsuit _ _ -> 4
-                    MkSuited  _ _ -> 2
-                    MkPair    _ -> 3
-
-allRanks :: [Rank]
-allRanks = reverse listEnum
-
-ranksToShapedHand :: Rank -> Rank -> ShapedHand
-ranksToShapedHand rowRank headerRank =
-  case compare rowRank headerRank of
-      GT -> MkSuited rowRank headerRank
-      EQ -> MkPair rowRank
-      LT -> MkOffsuit headerRank rowRank
-
-lookupOr :: Ord k => k -> a -> Range k a -> a
-lookupOr k a (Range m) = Map.lookup k m & maybe a id
-
-infix 9 !!?
-(!!?) :: [a] -> Int -> Maybe a
-(!!?) xs i
-    | i < 0     = Nothing
-    | otherwise = go i xs
-  where
-    go :: Int -> [a] -> Maybe a
-    go 0 (x:_)  = Just x
-    go j (_:ys) = go (j - 1) ys
-    go _ []     = Nothing

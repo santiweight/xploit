@@ -6,9 +6,9 @@ build-type: Simple
 library
   hs-source-dirs: src
   build-depends: base
-               , poker
+               , poker-base
                , poker-game
-               , history-bovada
+               , poker-histories
                , xploit-query
                , aeson
                , bytestring

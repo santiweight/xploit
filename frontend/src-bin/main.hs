@@ -1,12 +1,10 @@
-import Frontend
-import Common.Route
-import Obelisk.Frontend
-import Obelisk.Route.Frontend
-import Reflex.Dom
+import           Common.Route
+import           Frontend
+import           Obelisk.Frontend
+import           Obelisk.Route.Frontend
+import           Reflex.Dom
 
 main :: IO ()
 main = do
-  -- migrateDB
-  -- runBackend
   let Right validFullEncoder = checkEncoder fullRouteEncoder
   run $ runFrontend validFullEncoder frontend

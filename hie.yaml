@@ -1,0 +1,24 @@
+cradle:
+  multi:
+   - path: "./backend/src-bin"
+     config:
+       cradle:
+         none:
+   - path: "./"
+     config:
+       cradle:
+         cabal:
+           - path: "frontend/src"
+             component: "lib:frontend"
+           - path: "backend/src"
+             component: "lib:backend"
+           - path: "common/src"
+             component: "lib:common"
+
+
+dependencies:
+  - default.nix
+  - frontend/frontend.cabal
+  - backend/backend.cabal
+  - common/common.cabal
+  # - shell.nix
