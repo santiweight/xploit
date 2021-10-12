@@ -1,8 +1,20 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# Language UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 
 module Server.Instances where
 
+import Database.Persist.TH (derivePersistField)
+import Data.Time.LocalTime (LocalTime (..), TimeOfDay (..))
+import Data.Time.Calendar (Day (..))
+import GHC.Generics
+import Codec.Serialise
+import Poker
+import Poker.History.Bovada.Model
 import Database.Persist.TH (derivePersistField)
 import Data.Time.LocalTime (LocalTime (..), TimeOfDay (..))
 import Data.Time.Calendar (Day (..))
@@ -71,4 +83,3 @@ instance Serialise Hand
 instance (Generic b, Serialise b) => Serialise (Player b)
 instance Serialise GameType
 instance Serialise Network
-

@@ -11,6 +11,7 @@ library
                , directory
                , dir-traverse
                , common
+               , filemanip
                , poker-base
                , poker-game
                , poker-histories

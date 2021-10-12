@@ -32,7 +32,7 @@ type QueryAPI = "run"
               :> ReqBody '[JSON] NodeQueryRequest
               :> Get '[JSON] NodeQueryResponse
 
-type Add = "add" :> (LoadHandHAPI :<|> AddHandFile)
+-- type Add = "add" :> (LoadHandHAPI :<|> AddHandFile)
 
 type LoadHandHAPI = "load"
                   :> QueryParam "path" FilePath
@@ -43,7 +43,8 @@ type AddHandFile = QueryParam "contents" String
 
 type Echo = "echo" :> Get '[JSON] ()
 
-type PokerAPI = "api" :> (QueryAPI :<|> Add :<|> Echo)
+-- type PokerAPI = "api" :> (QueryAPI :<|> Add :<|> Echo)
+type PokerAPI = "api" :> (QueryAPI :<|> LoadHandHAPI :<|> Echo)
 
 
 data NodeQueryRequest = NodeQueryRequest

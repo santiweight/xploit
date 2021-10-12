@@ -29,14 +29,23 @@ import           Servant.Reflex                 ( QParam
 import Servant.API
 import Data.Proxy (Proxy (Proxy))
 
+-- loadHandClient :: forall t m. MonadWidget t m => AddHandClient t m
+-- loadHandClient = do
+--   let (_loadDir :<|> _addHandContents) = client
+--         (Proxy :: Proxy Add)
+--         (Proxy :: Proxy m)
+--         (Proxy :: Proxy ())
+--         (constDyn (BasePath "/"))
+--   AddHandClient undefined _loadDir
+
 loadHandClient :: forall t m. MonadWidget t m => AddHandClient t m
 loadHandClient = do
-  let (_loadDir :<|> _addHandContents) = client
-        (Proxy :: Proxy Add)
+  let (_loadDir) = client
+        (Proxy :: Proxy LoadHandHAPI)
         (Proxy :: Proxy m)
         (Proxy :: Proxy ())
         (constDyn (BasePath "/"))
-  AddHandClient undefined _loadDir
+  AddHandClient _loadDir
 
 backendClient :: forall t m . MonadWidget t m => BackendClient t m
 backendClient = do
@@ -47,11 +56,11 @@ backendClient = do
   MyClient _queryApi loadHandClient _echo
 
 data AddHandClient t m = AddHandClient
-  { addFilesApi
-      :: Dynamic t (QParam [FilePath])
-      -> Event t ()
-      -> m (Event t (ReqResult () ()))
-  , _addDirApi
+  -- { addFilesApi
+  --     :: Dynamic t (QParam [FilePath])
+  --     -> Event t ()
+  --     -> m (Event t (ReqResult () ()))
+  { _addDirApi
       :: Dynamic t (QParam FilePath)
       -> Event t ()
       -> m (Event t (ReqResult () ()))
