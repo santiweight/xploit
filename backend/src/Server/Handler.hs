@@ -19,9 +19,8 @@ import           Database.Persist.Postgresql
 import           Money
 import           Poker
 import           Poker.Game.Types
-import           Poker.History.Model
-import           Poker.History.Parse.Base
-import           Poker.History.Parse.Bovada
+import           Poker.History.Bovada.Model
+import           Poker.History.Bovada.Parser
 import           Poker.History.Types
 import           Poker.Query.ActionIx
 import           Poker.Query.Eval.Base          ( runIxBetsAsQuery )
@@ -84,7 +83,7 @@ parseInPath fp = do
     else error "not a directory"
 
 toUsd :: SomeBetSize -> Amount "USD"
-toUsd (SomeBetSize USD ra) = Amount . fst . discreteFromDense Floor $ dense' ra
+toUsd (SomeBetSize USD ra) = unsafeMkAmount . fst . discreteFromDense Floor $ dense' ra
 toUsd _                    = error "Unexpected non-USD hand"
 
 parseFile
@@ -113,12 +112,12 @@ getFilesRecursive fp = getDirRecursive fp >>= filterM doesFileExist
   -- assertEqual "expect all hands parsed" (length hs) (numHandsExpected + 1)
 
 queryServer :: MonadSnap m => Server QueryAPI l m
-queryServer = queryHandler
+queryServer = queryHandler . nodePath
  where
   queryHandler
     :: MonadSnap m
     => [(Position, BetAction (IxRange (Amount "USD")))]
-    -> m (Map String (Range Hand [BetAction (Amount "USD")]))
+    -> m NodeQueryResponse
   queryHandler ixBets = do
     -- let hands = allHands
     hands <- liftIO $ runDb selectAllHands
@@ -132,7 +131,7 @@ queryServer = queryHandler
           mapMaybe (preview _Right) handResults
     let noErrorResult =
           foldr (Map.unionWith unionRanges) Map.empty noErrorResults
-    pure $ Range <$> noErrorResult
+    pure $ NodeQueryResponse undefined undefined $ Range <$> noErrorResult
     -- liftIO $ print "results"
     -- -- liftIO $ print firstResults
     -- -- liftIO $ print noErrorResults

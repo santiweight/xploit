@@ -43,6 +43,7 @@ import           RangeCalc                      ( getCurrentNode
 import           RangeDisplay                   ( holdingDisplay
                                                 , rangeDisplay
                                                 )
+import Poker.Query.ActionIx
 
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend { _frontend_head = Head.head, _frontend_body = body }

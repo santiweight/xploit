@@ -29,8 +29,8 @@ import Data.Aeson.TH
 
 -- Real API
 type QueryAPI = "run"
-              :> ReqBody '[JSON] [(Position, BetAction (IxRange (Amount "USD")))]
-              :> Get '[JSON] (Map String (Range Hand [BetAction (Amount "USD")]))
+              :> ReqBody '[JSON] NodeQueryRequest
+              :> Get '[JSON] NodeQueryResponse
 
 type Add = "add" :> (LoadHandHAPI :<|> AddHandFile)
 

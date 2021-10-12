@@ -36,7 +36,7 @@ import Database.Persist
 import Database.Persist.Postgresql
 import Database.Persist.TH as PTH
 import Poker
-import Poker.History.Model
+import Poker.History.Bovada.Model
 import Poker.History.Types
 
 import Common.DB.Instances ()

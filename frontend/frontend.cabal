@@ -20,6 +20,7 @@ library
                , obelisk-executable-config-lookup
                , obelisk-generated-static
                , poker-base
+               , prettyprinter
                , reflex-dom
                , servant
                , servant-reflex

@@ -16,35 +16,35 @@
 
 module Handlers where
 
-import           Common.Server.Api              ( NodeQueryResponse
-                                                , NodeQueryRequest
-                                                )
+import           Common.Server.Api
 import           Control.Lens                   ( makeLenses
                                                 )
 import           Data.Text                      ( Text )
 import           Reflex.Dom
 import           Servant.Reflex                 ( QParam
-                                                , ReqResult
+                                                , ReqResult, client
+                                                , BaseUrl(BasePath)
 
                                                 )
+import Servant.API
+import Data.Proxy (Proxy (Proxy))
 
 loadHandClient :: forall t m. MonadWidget t m => AddHandClient t m
 loadHandClient = do
-  -- let ((_loadFiles :<|> _loadDir) :<|> _addHandContents) = client
-  --       (Proxy :: Proxy Add)
-  --       (Proxy :: Proxy m)
-  --       (Proxy :: Proxy ())
-  --       (constDyn (BasePath "/"))
-  undefined
+  let (_loadDir :<|> _addHandContents) = client
+        (Proxy :: Proxy Add)
+        (Proxy :: Proxy m)
+        (Proxy :: Proxy ())
+        (constDyn (BasePath "/"))
+  AddHandClient undefined _loadDir
 
 backendClient :: forall t m . MonadWidget t m => BackendClient t m
 backendClient = do
-  -- let (_queryApi :<|> _ :<|> _echo) = client (Proxy :: Proxy PokerAPI)
-  --                                            (Proxy :: Proxy m)
-  --                                            (Proxy :: Proxy ())
-  --                                            (constDyn (BasePath "/"))
-  -- MyClient _queryApi loadHandClient _echo
-  undefined
+  let (_queryApi :<|> _ :<|> _echo) = client (Proxy :: Proxy PokerAPI)
+                                             (Proxy :: Proxy m)
+                                             (Proxy :: Proxy ())
+                                             (constDyn (BasePath "/"))
+  MyClient _queryApi loadHandClient _echo
 
 data AddHandClient t m = AddHandClient
   { addFilesApi
@@ -64,8 +64,7 @@ data BackendClient t m = MyClient
       -> m (Event t (ReqResult () NodeQueryResponse))
   , _addClient :: AddHandClient t m
   , _echo
-      :: Dynamic t (Either Text Int)
-      -> Event t ()
+      :: Event t ()
       -> m (Event t (ReqResult () ()))
   }
 

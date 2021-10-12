@@ -19,6 +19,7 @@ import           Poker.Game.Types
 import           Poker.Query.ActionIx
 import Poker.Game.Emulate (emulateAction)
 import Data.Text (Text)
+import Prettyprinter
 -- import           Poker.Game.HasAvailableActions ( HasAvailableActions(..) )
 
 -- initState :: GameState (Amount "USD")
@@ -69,13 +70,10 @@ initRangeState =
         , PostAction BB $ Post $ ExactlyRn (unsafeMkAmount 25)
         ]
   in  case
-          execStateT (sequence_ $ emulateAction' <$> blindActions) defRangeState
+          execStateT (sequence_ $ emulateAction <$> blindActions) defRangeState
         of
           Left  e -> error $ show e
           Right r -> r
-
-emulateAction' :: Action (IxRange (Amount "USD")) -> StateT (GameState (IxRange (Amount "USD"))) (Either Text) a0
-emulateAction' = error "not implemented"
 
 defRangeState :: GameState (IxRange (Amount "USD"))
 defRangeState = GameState
@@ -159,12 +157,23 @@ defRangeState = GameState
 --     -- getMinBet (BelowRn _     ) = Nothing
 
 doPosAct
-  ::  (Position, BetAction (Amount "USD"))
-  -> GameState (Amount "USD")
-  -> GameState (Amount "USD")
+  ::  (Pretty b, IsBet b) => (Position, BetAction b)
+  -> GameState b
+  -> GameState b
 doPosAct (pos, bet) gameSt =
   let emulateActionM =
         emulateAction (MkPlayerAction $ PlayerAction pos bet)
   in  case execStateT emulateActionM gameSt of
         Left  e -> gameSt -- TODO output error
         Right r -> r
+
+instance (Monoid b, Semigroup b) => Semigroup (IxRange b) where
+  (<>) = addRange
+
+instance Monoid b => Monoid (IxRange b) where
+  mempty = ExactlyRn mempty
+
+instance (Ord b, IsBet b) => IsBet (IxRange b) where
+  smallestAmount = ExactlyRn smallestAmount
+  -- TODO fixme
+  minus = subRange

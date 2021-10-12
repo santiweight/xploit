@@ -44,7 +44,7 @@ gameTable gameState = divClass "table" $ do
       playerEl (activePlayer == pos)
                stack
                pos
-               (gameState ^. streetInvestments . at pos . non 0)
+               (gameState ^. streetInvestments . at pos . non mempty)
 
 playerEl
   :: (Show b, PrettyBetAmount b, ObeliskWidget js t (R FrontendRoute) m)

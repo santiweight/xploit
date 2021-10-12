@@ -18,5 +18,7 @@ instance PrettyBetAmount (IxRange (Amount "USD")) where
   prettyBetAmount = (<> "$") . \case
     ExactlyRn amt -> pretty amt
     BetweenRn lo hi -> "[" <> pretty lo <> "," <> pretty hi <> "]"
-    amt -> error . unpack $ "pretty not yet implemented: " <> tshow amt
+    AnyRn -> "any amount"
+    AboveRn amt -> "above " <> tshow amt
+    BelowRn amt -> "below " <> tshow amt
     where pretty amt = tshow amt

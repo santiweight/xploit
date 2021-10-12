@@ -6,6 +6,7 @@ import Database.Esqueleto
 import Codec.Serialise (deserialise)
 import Data.ByteString.Lazy (fromStrict)
 import Server.Base
+import Poker.History.Bovada.Model
 
 selectAllHands :: SqlPersistM [History (Amount "USD")]
 selectAllHands = do

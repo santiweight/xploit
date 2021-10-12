@@ -14,7 +14,7 @@ import Money
 import Money.Serialise
 import GHC.TypeLits
 import Poker
-import Poker.History.Model
+import Poker.History.Bovada.Model
 import Poker.History.Types
 
 derivePersistField "GameType"
@@ -50,7 +50,7 @@ deriving instance  Generic (Stake b)
 deriving instance  Generic Seat
 instance  (KnownSymbol b, GoodScale (CurrencyScale b)) => Generic (Amount b) where
   type Rep (Amount b) = Rep (Discrete' b (CurrencyScale b))
-  to = Amount . to
+  to = unsafeMkAmount . to
   from (Amount amt) =  from amt
 instance (KnownSymbol b, GoodScale (CurrencyScale b)) => Serialise (Amount b) where
   encode (Amount amt) = encode $ toSomeDiscrete amt
@@ -58,7 +58,7 @@ instance (KnownSymbol b, GoodScale (CurrencyScale b)) => Serialise (Amount b) wh
     someDiscrete <- decode
     case fromSomeDiscrete someDiscrete of
       Nothing -> fail "Bad discrete type"
-      Just disc -> pure $ Amount disc
+      Just disc -> pure $ unsafeMkAmount disc
 instance  Serialise Seat
 instance  (Generic b, Serialise b) => Serialise (Stake b )
 instance (Generic b, Serialise b) => Serialise (History b)
