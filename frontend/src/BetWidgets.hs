@@ -35,7 +35,7 @@ import           Slider
 import Poker.Game.Types
 import Poker.Query.ActionIx
 import Poker.Game.AvailableActions (availableActions, AvailableAction)
-import Money (discrete)
+import Money (discrete, mkSomeDiscrete, toSomeDiscrete, someDiscreteAmount)
 
 data SBetAction = SCheck | SFold | SCall | SRaise | SAllInRaise
   deriving (Show, Eq)
@@ -103,6 +103,8 @@ betBtnsInner gameState = do
 fromAvailAct :: AvailableAction b -> BetAction (IxRange (Amount "USD"))
 fromAvailAct = error "not implemented"
 
+amountToInt = fromIntegral . someDiscreteAmount . toSomeDiscrete . unAmount
+
 betBtnOf
   :: (ObeliskWidget js t (R FrontendRoute) m)
   => Position
@@ -121,7 +123,7 @@ betBtnOf pos a currBetSDyn = do
     Fold         -> ((pos, Fold) <$) <$> betButton "Fold" SFold
     bet@(AllInRaise (ExactlyRn _) (ExactlyRn amt)) ->
       ((pos, bet) <$) <$> button ("Raise All-In" <> P.tshow amt)
-    Raise _ (BetweenRn lo hi) -> elClass "div" "raiseWidget" $ do
+    Raise _ (BetweenRn (amountToInt -> lo) (amountToInt -> hi)) -> elClass "div" "raiseWidget" $ do
       raiseBtnEv      <- betButton "raise" SRaise
       rangeTyDropdown <- mkRangeTyDropdown
       let rangeTyDyn = rangeTyDropdown ^. dropdown_value
@@ -136,28 +138,28 @@ betBtnOf pos a currBetSDyn = do
         BetweenRnS -> mdo
           sliderEv <- elClass "div" "between-slider-container" $ do
             el "div" $ display loVal
-            sliderEv_ <- doubleSlider (_unAmount lo, _unAmount hi)
+            sliderEv_ <- doubleSlider (lo, hi)
             display hiVal
             pure sliderEv_
           sliderVals <- holdDyn (lo, hi) sliderEv
           let (loVal, hiVal) = splitDynPure sliderVals
-          pure $ uncurry BetweenRn . bimap (Amount . discrete) (Amount . discrete) <$> sliderEv
+          pure $ uncurry BetweenRn . bimap (unsafeMkAmount . discrete . fromIntegral) (unsafeMkAmount . discrete . fromIntegral) <$> sliderEv
         BelowRnS -> singleSliderWidget BelowSlider (lo, hi) BelowRn
         AboveRnS -> singleSliderWidget AboveSlider (lo, hi) AboveRn
         AnyRnS   -> getPostBuild <&> fmap (const AnyRn)
       amtDyn <-
-        holdDyn (BetweenRn (Amount 50) (Amount 250) :: IxRange (Amount "USD")) =<< switchHold never amt
+        holdDyn (BetweenRn (unsafeMkAmount 50) (unsafeMkAmount 250) :: IxRange (Amount "USD")) =<< switchHold never amt
       let raiseEv =
-            tagPromptlyDyn ((pos, ) . Raise (ExactlyRn 0) <$> amtDyn) raiseBtnEv
+            tagPromptlyDyn ((pos, ) . Raise (ExactlyRn $ unsafeMkAmount 0) <$> amtDyn) raiseBtnEv
       pure raiseEv
     other -> never <$ (text . T.pack $ show other)
  where
   singleSliderWidget sliderTy (lo, hi) sizeToRangeFun =
     elClass "div" "single-slider-container" $ mdo
       display sliderVal
-      sliderEv  <- singleSlider sliderTy (get(Amount "USD") lo, get(Amount "USD") hi)
-      sliderVal <- holdDyn (get(Amount "USD") $ lo + hi / 2) sliderEv
-      pure $ sizeToRangeFun . mk(Amount "USD") <$> sliderEv
+      sliderEv  <- singleSlider sliderTy (lo, hi)
+      sliderVal <- holdDyn (fromRational $  toRational lo + (toRational hi / 2)) (fromIntegral <$> sliderEv)
+      pure $ sizeToRangeFun . unsafeMkAmount . discrete . fromIntegral <$> sliderEv
   betButton txt betTyS = do
     (raiseBtnEl, _) <- elDynAttr' "button" buttonAttrs $ text txt
     pure $ domEvent Click raiseBtnEl

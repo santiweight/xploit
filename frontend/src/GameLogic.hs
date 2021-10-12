@@ -65,8 +65,8 @@ import Data.Text (Text)
 initRangeState :: GameState (IxRange (Amount "USD"))
 initRangeState =
   let blindActions = MkPostAction <$>
-        [ PostAction SB $ Post $ ExactlyRn (Amount 12)
-        , PostAction BB $ Post $ ExactlyRn (Amount 25)
+        [ PostAction SB $ Post $ ExactlyRn (unsafeMkAmount 12)
+        , PostAction BB $ Post $ ExactlyRn (unsafeMkAmount 25)
         ]
   in  case
           execStateT (sequence_ $ emulateAction' <$> blindActions) defRangeState
@@ -80,25 +80,20 @@ emulateAction' = error "not implemented"
 defRangeState :: GameState (IxRange (Amount "USD"))
 defRangeState = GameState
   { _stateStakes       = Stake AnyRn
-  , _posToPlayer       = Map.fromList
-                           [ (UTG, Player (unsafeParsePretty "AhAd") $ Stack AnyRn)
-                           , (UTG, Player (unsafeParsePretty "Ac4c") $ Stack AnyRn)
-                           , (UTG, Player (unsafeParsePretty "KdTh") $ Stack AnyRn)
-                           , (BU , Player (unsafeParsePretty "7h7d") $ Stack AnyRn)
-                           , (SB , Player (unsafeParsePretty "6sTc") $ Stack AnyRn)
-                           , (BB , Player (unsafeParsePretty "Jh5s") $ Stack AnyRn)
+  , _posToStack       = Map.fromList
+                           [ (UTG, Stack AnyRn)
+                           , (UTG, Stack AnyRn)
+                           , (UTG, Stack AnyRn)
+                           , (BU , Stack AnyRn)
+                           , (SB , Stack AnyRn)
+                           , (BB , Stack AnyRn)
                            ]
   , _potSize           = Pot AnyRn
   , _street            = PreFlopBoard InitialTable
   , _toActQueue        = [UTG, UTG1, UTG2, BU, SB, BB]
   , _activeBet         = Nothing
   , _streetInvestments = Map.empty
-  , _aggressor         = Nothing
   }
-
-mkTestPlayer :: Text -> b -> Player b
-mkTestPlayer holding stackAmt =
-  Player { _playerHolding = unsafeParsePretty holding, _stack = Stack stackAmt }
 
 -- TODO move into base packages to prevent orphan instance
 -- instance HasAvailableActions (IxRange BetSize) where

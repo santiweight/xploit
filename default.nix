@@ -22,7 +22,22 @@ let
     "rev" = "8b80661f5df524cf37a159c73cb698af83479b37";
   };
 
+  prettyprinterSrc = fetchGit {
+    "url" = "http://github.com/quchen/prettyprinter";
+    "rev" = "6cafb528675bae6d9999446008683552b997b6d4";
+  };
+
   polysemyPluginSrc = polysemySrc + "/polysemy-plugin";
+
+  # dataFixSrc = fetchGit {
+  #   "url" = "https://github.com/spell-music/data-fix";
+  #   "rev" = "44d90f21274d3c6507c725342cab932d4c9c5ba0";
+  # };
+
+  # recursionSchemesSrc = fetchGit {
+  #   "url" = "https://github.com/ekmett/recursion-schemes";
+  #   "rev" = "30767f798889364d87ff874c0dd46972c4ab2f40";
+  # };
 
   # reflexCodeMirrorSrc = fetchGit {
   #   url = https://github.com/Atidot/reflex-codemirror;
@@ -59,6 +74,13 @@ in
 project ./. ({ pkgs, ... }: {
   inherit withHoogle;
   overrides = self: super: {
+    # data-fix = pkgs.haskell.lib.dontCheck (self.callCabal2nix "data-fix" dataFixSrc {});
+    # recursion-schemes = pkgs.haskell.lib.dontCheck (self.callCabal2nix "recursion-schemes" recursionSchemesSrc {});
+    prettyprinter = self.callHackageDirect {
+      pkg = "prettyprinter";
+      ver = "1.7.1";
+      sha256 = "0ddf0wb06sqipklh00ah3wazy37g8hnnm99n8g96xmwbhakmpaz2";
+    } {};
     polysemy-plugin = pkgs.haskell.lib.dontCheck (self.callCabal2nix "polysemy-plugin" polysemyPluginSrc {});
     polysemy = pkgs.haskell.lib.dontCheck (self.callCabal2nix "polysemy" polysemySrc {});
     hspec-snap     = pkgs.haskell.lib.dontCheck (self.callHackage "hspec-snap" "1.0.1.0" { });

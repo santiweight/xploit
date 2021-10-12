@@ -16,86 +16,35 @@
 
 module Handlers where
 
-import qualified BasicPrelude                  as P
-import GameLogic
-import           Common.Server.Api              ( Add
-                                                , LoadHandHAPI
-                                                , PokerAPI, NodeQueryResponse
+import           Common.Server.Api              ( NodeQueryResponse
                                                 , NodeQueryRequest
                                                 )
-import           Control.Lens                   ( (<&>)
-                                                , (^.)
-                                                , makeLenses
+import           Control.Lens                   ( makeLenses
                                                 )
-import           Control.Monad.Fix
-import           Control.Monad.IO.Class         ( liftIO )
-import           Data.Bifunctor
-import           Data.Data                      ( Proxy(Proxy) )
-import           Data.Functor.Identity          ( Identity(Identity) )
-import qualified Data.Map.Strict               as Map
-import qualified Data.Text                     as T
 import           Data.Text                      ( Text )
-import           JSDOM.Generated.Element        ( Element(unElement)
-                                                , IsElement
-                                                , toElement
-                                                )
-import           JSDOM.Types                    ( JSM
-                                                , liftJSM
-                                                )
-import           Language.Javascript.JSaddle    ( (!)
-                                                , (#)
-                                                , fun
-                                                , function
-                                                , nextAnimationFrame
-                                                )
-import           Language.Javascript.JSaddle.Evaluate
-                                                ( eval )
-import           Language.Javascript.JSaddle.Object
-                                                ( jsg )
-import           Language.Javascript.JSaddle.Value
-                                                ( valToText )
-import           Poker( BetAction
-                                                  ( AllInRaise
-                                                  , Call
-                                                  , Check
-                                                  , Fold
-                                                  , Raise
-                                                  )
-                                                , Position
-                                                )
 import           Reflex.Dom
-import           Servant.API                    ( type (:<|>)(..) )
-import           Servant.Reflex                 ( BaseUrl(BasePath)
-                                                , QParam
+import           Servant.Reflex                 ( QParam
                                                 , ReqResult
-                                                , client
+
                                                 )
-import           Text.Megaparsec
-import           Text.Megaparsec.Char           ( char )
-import           Text.Megaparsec.Char.Lexer
-import           Text.Megaparsec.Internal       ( ParsecT(ParsecT) )
-import Obelisk.Frontend
-import Obelisk.Route
-import Common.Route
-import Control.Monad
-import Control.Monad.State (evalStateT)
 
 loadHandClient :: forall t m. MonadWidget t m => AddHandClient t m
 loadHandClient = do
-  let ((_loadFiles :<|> _loadDir) :<|> _addHandContents) = client
-        (Proxy :: Proxy Add)
-        (Proxy :: Proxy m)
-        (Proxy :: Proxy ())
-        (constDyn (BasePath "/"))
+  -- let ((_loadFiles :<|> _loadDir) :<|> _addHandContents) = client
+  --       (Proxy :: Proxy Add)
+  --       (Proxy :: Proxy m)
+  --       (Proxy :: Proxy ())
+  --       (constDyn (BasePath "/"))
   undefined
 
 backendClient :: forall t m . MonadWidget t m => BackendClient t m
 backendClient = do
-  let (_queryApi :<|> _ :<|> _echo) = client (Proxy :: Proxy PokerAPI)
-                                             (Proxy :: Proxy m)
-                                             (Proxy :: Proxy ())
-                                             (constDyn (BasePath "/"))
-  MyClient _queryApi loadHandClient _echo
+  -- let (_queryApi :<|> _ :<|> _echo) = client (Proxy :: Proxy PokerAPI)
+  --                                            (Proxy :: Proxy m)
+  --                                            (Proxy :: Proxy ())
+  --                                            (constDyn (BasePath "/"))
+  -- MyClient _queryApi loadHandClient _echo
+  undefined
 
 data AddHandClient t m = AddHandClient
   { addFilesApi

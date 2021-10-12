@@ -12,9 +12,10 @@ import Data.Aeson.TH (defaultOptions, deriveJSON)
 import Data.Aeson (Value(..), ToJSON(..), FromJSON(..), ToJSONKey (..), FromJSONKey (..), defaultJSONKeyOptions, genericFromJSONKey, genericToJSONKey)
 import Poker
 import Poker.Query.ActionIx
--- import Poker.History.Model
+import qualified Poker.History.Bovada.Model as Bov
 -- import Poker.History.Types
 import Poker.Game.Types
+import qualified Poker.Game.Types as Game
 -- import Poker.Game
 import Poker.Query.Eval.Types
 import Poker.Query.Eval.AST.Types
@@ -41,8 +42,8 @@ deriving instance Generic Position
 deriving via (Map a b) instance (FromJSONKey a, Ord a, FromJSON b) => FromJSON (Range a b)
 deriving via (Map a b) instance (ToJSONKey a, Ord a, ToJSON b) => ToJSON (Range a b)
 instance (FromJSON (Discrete' b (CurrencyScale b)), KnownSymbol b, GoodScale (CurrencyScale b)) => FromJSON (Amount b) where
-  parseJSON = fmap Amount . parseJSON
-instance (ToJSON (Discrete' b (CurrencyScale b))) => ToJSON (Amount b) where
+  parseJSON = fmap unsafeMkAmount . parseJSON
+instance (ToJSON (Discrete' b (CurrencyScale b)), KnownSymbol b, GoodScale (CurrencyScale b)) => ToJSON (Amount b) where
   toJSON (Amount amt) = toJSON amt
 -- deriving instance Generic (SNetwork net)
 -- deriveJSON defaultOptions ''GameErrorBundle
@@ -59,7 +60,6 @@ deriveJSON defaultOptions ''Seat
 deriveJSON defaultOptions ''Stake
 -- deriveJSON defaultOptions ''BetAction
 deriveJSON defaultOptions ''GameError
-deriveJSON defaultOptions ''GameErrorBundle
 deriveJSON defaultOptions ''GameState
 deriveJSON defaultOptions ''Pot
 deriveJSON defaultOptions ''ActionFaced
@@ -80,13 +80,18 @@ deriveJSON defaultOptions ''Card
 deriveJSON defaultOptions ''Rank
 deriveJSON defaultOptions ''Suit
 deriveJSON defaultOptions ''Position
--- deriveJSON defaultOptions ''Network
-deriveJSON defaultOptions ''Player
--- deriveJSON defaultOptions ''Hand
--- deriveJSON defaultOptions ''GameType
 deriveJSON defaultOptions ''IsHero
 deriveJSON defaultOptions ''Action
 deriveJSON defaultOptions ''Hand
 -- deriveJSON defaultOptions ''Shape
 deriveJSON defaultOptions ''ShapedHand
 
+
+deriveJSON defaultOptions ''Bov.GameType
+deriveJSON defaultOptions ''Bov.Header
+deriveJSON defaultOptions ''Bov.DealerAction
+deriveJSON defaultOptions ''Bov.TableActionValue
+deriveJSON defaultOptions ''Bov.TableAction
+deriveJSON defaultOptions ''Bov.Action
+deriveJSON defaultOptions ''Bov.Player
+deriveJSON defaultOptions ''Bov.History

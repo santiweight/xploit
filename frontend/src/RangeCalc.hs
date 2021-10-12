@@ -5,6 +5,7 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DataKinds #-}
 
 {-# LANGUAGE TypeFamilies #-}
 module RangeCalc where
@@ -23,15 +24,16 @@ import           Data.Map.Strict                ( Map )
 import           Handlers
 import           Obelisk.Frontend
 import           Obelisk.Route
-import           Poker.Base
+import           Poker
 import           Poker.Range                    ( Range(Range) )
 import           Reflex.Dom
+import Poker.Query.ActionIx
 import           Servant.Common.Req
 
 getCurrentNode
   :: (ObeliskWidget js t (R FrontendRoute) m)
-  => Dynamic t (Position, BetAction (IxRange BetSize)) -- ^
-  -> Dynamic t [(Position, BetAction (IxRange BetSize))] -- ^
+  => Dynamic t (Position, BetAction (IxRange (Amount "USD"))) -- ^
+  -> Dynamic t [(Position, BetAction (IxRange (Amount "USD")))] -- ^
   -> Dynamic t Bool
   -> m (Dynamic t NodeQueryResponse)
 -- TODO use liftM3 to pull out one more level of function (unwrap the Dyn on the input args)
@@ -63,8 +65,8 @@ handsToRetrieve = 10
 
 getFilterResultD
   :: (MonadWidget t m)
-  => [(Position, BetAction (IxRange BetSize))]
-  -> BetAction (IxRange BetSize)
+  => [(Position, BetAction (IxRange (Amount "USD")))]
+  -> BetAction (IxRange (Amount "USD"))
   -> Bool
   -> m (Event t NodeQueryResponse)
 getFilterResultD nodePath nodeFilter includeHero = mdo

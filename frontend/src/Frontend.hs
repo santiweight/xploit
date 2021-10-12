@@ -36,7 +36,7 @@ import           GameLogic
 import           GameTable
 import qualified Head
 import           Obelisk.Route.Frontend         ( RoutedT )
-import           Poker.Base
+import           Poker
 import           Poker.Game.Types
 import           RangeCalc                      ( getCurrentNode
                                                 )
@@ -75,7 +75,8 @@ body = do
   matchedHandsDisplay nodeQueryResponseD =
     dyn_ $ (nodeQueryResponseD <&> handsMatchedFilter) <&> \matchedHands -> do
       P.forM_ matchedHands $ \matchedHand -> el "p" $ do
-        let handLines = fmap T.pack . lines $ _handText matchedHand
+        -- TODO get the hand's text here :)
+        let handLines = fmap T.pack . lines $ "matched hand" -- _handText matchedHand
         P.forM_ handLines $ \handLine -> do
           el "div" $ text handLine
 
@@ -91,12 +92,13 @@ body = do
 
   rangeDisplayWidget currRange = do
     selectShapedHandE <- rangeDisplay currRange
-    holdDyn (ShapedHand (Ace, Ace) Pair) selectShapedHandE
+    holdDyn (mkPair Ace) selectShapedHandE
 
   lockNodeBtn filterBetD = el "div" $ do
     lockNodeEv <- button "Lock Node"
     pure $ tagPromptlyDyn filterBetD lockNodeEv
 
+  accNodesFun :: _
   accNodesFun (pos, act) gameTree = case gameTree of
     Root init [] -> Root init [(pos, act, doPosAct (pos, act) init)]
     Root init nodes ->
@@ -136,7 +138,7 @@ treeView currFiltActD (Root init lockedNodes) = do
 mkRoot :: GameState b -> GameTree b act
 mkRoot gameSt = Root gameSt []
 
-currGameState :: GameTree _ _ -> GameState _
+currGameState :: GameTree a b -> GameState a
 currGameState (Root initState nodes) = case nodes of
   [] -> initState
   _  -> (\(_, _, gameSt) -> gameSt) $ last nodes

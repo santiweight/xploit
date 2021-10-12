@@ -2,18 +2,21 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
+
 module PrettyBetAmount where
 
 import           BasicPrelude
 import           Data.Text                      ( unpack )
-import           Poker.Base
+import Poker.Query.ActionIx
+import Poker
 
 class PrettyBetAmount b where
   prettyBetAmount :: b -> Text
 
-instance PrettyBetAmount (IxRange BetSize) where
+instance PrettyBetAmount (IxRange (Amount "USD")) where
   prettyBetAmount = (<> "$") . \case
     ExactlyRn amt -> pretty amt
     BetweenRn lo hi -> "[" <> pretty lo <> "," <> pretty hi <> "]"
     amt -> error . unpack $ "pretty not yet implemented: " <> tshow amt
-    where pretty (BetSize amt) = tshow amt
+    where pretty amt = tshow amt

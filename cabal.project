@@ -2,7 +2,7 @@ optional-packages:
   */*.cabal
 
 packages:
-  deps/base/poker.cabal
+  deps/base/poker-base.cabal
   deps/xploit-query/xploit-query.cabal
   deps/game/poker-game.cabal
   deps/poker-histories/poker-histories.cabal
