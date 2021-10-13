@@ -13,7 +13,7 @@ import Control.Concurrent
 main :: IO ()
 main = do
   migrateDB
-  -- print "migration done"
+  print "migration done"
   runBackend backend frontend
   -- let Right validFullEncoder = checkEncoder fullRouteEncoder
   -- run $ runFrontend validFullEncoder frontend

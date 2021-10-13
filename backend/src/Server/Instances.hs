@@ -57,7 +57,7 @@ instance (Generic b, Serialise b) => Serialise (PlayerAction b)
 instance Serialise IsHero
 instance (Generic b, Serialise b) => Serialise (TableAction b)
 instance (Generic b, Serialise b) => Serialise (TableActionValue b)
-instance  Serialise (Header )
+instance  Serialise Header
 deriving instance  Generic (Stake b)
 deriving instance  Generic Seat
 instance  (KnownSymbol b, GoodScale (CurrencyScale b)) => Generic (Amount b) where

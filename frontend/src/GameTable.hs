@@ -17,10 +17,11 @@ import           PrettyBetAmount
 import           Reflex.Dom
 import Poker.Query.ActionIx
 import Poker.Game.Types
+import RangeDisplay (prettyText)
 
 gameTable
   :: ( PrettyBetAmount b
-     , ObeliskWidget js t (R FrontendRoute) m
+     , ObeliskWidget js t a m
      , IsBetSize b
      , Show b
      )
@@ -47,16 +48,16 @@ gameTable gameState = divClass "table" $ do
                (gameState ^. streetInvestments . at pos . non mempty)
 
 playerEl
-  :: (Show b, PrettyBetAmount b, ObeliskWidget js t (R FrontendRoute) m)
+  :: (Show b, PrettyBetAmount b, ObeliskWidget js t a m)
   => Bool -- ^
   -> Stack b -- ^
   -> Position -- ^
   -> b -- ^
   -> m ()
-playerEl active player pos streetInv =
+playerEl active stack pos streetInv =
   divClass ("player player-" <> P.tshow pos <> " playing") $ do
     divClass "bank" $ do
       divClass "bank-value" $ text $ prettyBetAmount streetInv
     divClass ("player-tag " <> if active then "active" else "inactive") $ do
       divClass "name" $ text $ P.tshow pos
-      divClass "stack" $ text $ P.tshow $ player
+      divClass "stack" $ text $ prettyBetAmount $ stack

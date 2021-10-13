@@ -30,7 +30,7 @@ import Data.Aeson.TH
 -- Real API
 type QueryAPI = "run"
               :> ReqBody '[JSON] NodeQueryRequest
-              :> Get '[JSON] NodeQueryResponse
+              :> Post '[JSON] NodeQueryResponse
 
 -- type Add = "add" :> (LoadHandHAPI :<|> AddHandFile)
 
@@ -52,12 +52,14 @@ data NodeQueryRequest = NodeQueryRequest
   , includeHero :: Bool
   , nodeFilter  :: BetAction (IxRange (Amount "USD"))
   }
+  deriving Show
 
 data NodeQueryResponse = NodeQueryResponse
   { handsMatchedFilter :: [History (Amount "USD")]
   , holdingRange       :: Range Hand Double
   , shapedHandRange    :: Range ShapedHand Double
   }
+  deriving Show
 
 deriveJSON defaultOptions ''NodeQueryRequest
 deriveJSON defaultOptions ''NodeQueryResponse

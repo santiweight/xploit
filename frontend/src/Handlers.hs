@@ -40,7 +40,7 @@ import Data.Proxy (Proxy (Proxy))
 
 loadHandClient :: forall t m. MonadWidget t m => AddHandClient t m
 loadHandClient = do
-  let (_loadDir) = client
+  let _loadDir = client
         (Proxy :: Proxy LoadHandHAPI)
         (Proxy :: Proxy m)
         (Proxy :: Proxy ())

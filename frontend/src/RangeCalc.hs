@@ -29,9 +29,10 @@ import           Poker.Range                    ( Range(Range) )
 import           Reflex.Dom
 import Poker.Query.ActionIx
 import           Servant.Common.Req
+import Debug.Trace (traceShow)
 
 getCurrentNode
-  :: (ObeliskWidget js t (R FrontendRoute) m)
+  :: (ObeliskWidget js t r m)
   => Dynamic t (Position, BetAction (IxRange (Amount "USD"))) -- ^
   -> Dynamic t [(Position, BetAction (IxRange (Amount "USD")))] -- ^
   -> Dynamic t Bool
@@ -55,10 +56,10 @@ emptyQueryResponse = NodeQueryResponse [] (Range Map.empty) (Range Map.empty)
 
 
 getSuccess :: (ReqResult tag a -> Maybe a)
-getSuccess = \case
+getSuccess res = case res of
   ResponseSuccess _ res _ -> Just res
-  ResponseFailure{}       -> Nothing
-  RequestFailure _ _      -> Nothing
+  ResponseFailure _ txt _ -> traceShow txt $ Nothing
+  RequestFailure _ txt      -> traceShow txt $ Nothing
 
 handsToRetrieve :: Int
 handsToRetrieve = 10
@@ -71,7 +72,7 @@ getFilterResultD
   -> m (Event t NodeQueryResponse)
 getFilterResultD nodePath nodeFilter includeHero = mdo
   queryRunRes <- (backendClient ^. queryApi)
-    (Right <$> constDyn (NodeQueryRequest { .. }))
+    (Right <$> constDyn (NodeQueryRequest nodePath includeHero nodeFilter))
     startUpEv
   startUpEv <- getPostBuild
   pure $ mapMaybe getSuccess queryRunRes

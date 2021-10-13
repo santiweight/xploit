@@ -88,14 +88,15 @@ project ./. ({ pkgs, ... }: {
   };
 
   ios = {};
+  # tools = ghc: with ghc; [tasty-discover];
 
-  # shellToolOverrides = {
-  #   tasty-discover = justStaticExecutables (dontCheck (callHackageDirect {
-  #       pkg = "tasty-discover";
-  #       version = "4.2.2";
-
-  #   }));
-  # };
+  shellToolOverrides = self: super: {
+    tasty-discover = (pkgs.haskell.lib.dontCheck (self.callHackageDirect {
+        pkg = "tasty-discover";
+        ver = "4.2.2";
+      sha256 = "0ddf0wb06sqipklh00ah3wazy37g8hnnm99n8g96xmwbhakmpaz2";
+    } {}));
+  };
 
   packages = {
     servant-snap = servantSnapSrc;

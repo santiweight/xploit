@@ -8,17 +8,12 @@
 {-# LANGUAGE DataKinds #-}
 module GameLogic where
 
-import           Control.Lens                   ( _Just
-                                                , preuse
-                                                , use
-                                                )
 import           Control.Monad.State
 import qualified Data.Map.Strict               as Map
 import           Poker
 import           Poker.Game.Types
 import           Poker.Query.ActionIx
 import Poker.Game.Emulate (emulateAction)
-import Data.Text (Text)
 import Prettyprinter
 -- import           Poker.Game.HasAvailableActions ( HasAvailableActions(..) )
 

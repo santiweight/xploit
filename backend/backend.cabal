@@ -28,6 +28,8 @@ library
                , persistent
                , persistent-postgresql
                , persistent-template
+               , polysemy
+               , prettyprinter
                , obelisk-backend
                , obelisk-route
                , resourcet
@@ -42,9 +44,10 @@ library
   exposed-modules:
     Backend
     Server.Base
+    Server.DBQuery
+    Server.RunQuery
     Server.Instances
     Server.Handler
-    Server.Query
   ghc-options: -Wall
   default-extensions:
       ConstraintKinds
@@ -79,6 +82,7 @@ executable backend
     buildable: False
   build-depends: base
                , backend
+               , aeson
                , common
                , frontend
                , reflex-dom

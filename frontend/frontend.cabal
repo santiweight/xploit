@@ -27,6 +27,7 @@ library
                , xploit-query
                , megaparsec
                , poker-game
+               , poker-histories
                , safe-money
                , text
   exposed-modules:

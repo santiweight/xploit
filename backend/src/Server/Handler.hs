@@ -88,7 +88,9 @@ queryServer = queryHandler
     liftIO $ print $ "running query" ++ show nodePath
     hands <- liftIO $ runDb selectAllHands
     liftIO $ print $ "Running query against " <> show (length hands) <> " hands"
-    pure $ getNode hands request
+    let res = getNode hands request
+    liftIO $ print $ res
+    pure $ res
 
 runDb :: SqlPersistM a -> IO a
 runDb =
