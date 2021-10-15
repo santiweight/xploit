@@ -26,6 +26,7 @@ import Control.Lens
   )
 import Control.Monad (forM)
 import Data.Functor ((<&>))
+import Data.Text (Text)
 import qualified Data.Text as T
 import GHC.Stack
 import GameLogic
@@ -66,13 +67,60 @@ frontend =
         FrontendRoute_Review -> review
     }
 
+defaultHand :: Text
+defaultHand =
+  "\
+  \Bovada Hand #3754009075  Zone Poker ID#1365 HOLDEMZonePoker No Limit - 2019-03-31 05:42:59\
+  \Seat 1: UTG ($7.76 in chips)\
+  \Seat 2: UTG+1 ($4.05 in chips)\
+  \Seat 3: UTG+2 ($6.40 in chips)\
+  \Seat 4: Dealer ($4.08 in chips)\
+  \Seat 5: Small Blind ($13.57 in chips)\
+  \Seat 6: Big Blind [ME] ($5 in chips)\
+  \Dealer : Set dealer [4]\
+  \Small Blind : Small Blind $0.02\
+  \Big Blind  [ME] : Big blind $0.05\
+  \*** HOLE CARDS ***\
+  \UTG : Card dealt to a spot [8c Ts]\
+  \UTG+1 : Card dealt to a spot [7d Tc]\
+  \UTG+2 : Card dealt to a spot [9s 9c]\
+  \Dealer : Card dealt to a spot [Jd 4s]\
+  \Small Blind : Card dealt to a spot [Kd 5d]\
+  \Big Blind  [ME] : Card dealt to a spot [2d Kc]\
+  \UTG+1 : Leave(Auto)\
+  \Dealer : Leave(Auto)\
+  \UTG : Folds\
+  \UTG : Leave(Auto)\
+  \UTG+1 : Folds\
+  \Small Blind : Leave(Auto)\
+  \UTG+2 : Raises $0.15 to $0.15\
+  \Dealer : Folds\
+  \Small Blind : Folds\
+  \Big Blind  [ME] : Folds (timeout)\
+  \Big Blind  [ME] : Seat sit out\
+  \Big Blind  [ME] : Leave(Auto)\
+  \UTG+2 : Return uncalled portion of bet $0.10\
+  \UTG+2 : Does not show [9s 9c] (High Card)\
+  \UTG+2 : Hand result $0.12\
+  \UTG+2 : Leave(Auto)\
+  \Big Blind  [ME] : Enter(Auto)\
+  \Enter(Auto)\
+  \Enter(Auto)\
+  \Table deposit $0.26\
+  \Enter(Auto)\
+  \UTG : Enter(Auto)\
+  \Enter(Auto)\
+  \*** SUMMARY ***"
+
 review ::
   forall js t m r.
   (ObeliskWidget js t (R FrontendRoute) m) =>
   RoutedT t r m ()
-review = do
+review = mdo
   el "div" $ routeLink (FrontendRoute_Main :/ ()) $ text "home"
-  inputEl <- el "div" $ textAreaElement (def & initialAttributes .~ ("rows" =: "20" <> "cols" =: "90"))
+  let config = def & textAreaElementConfig_setValue .~ postBuild & textAreaElementConfig_initialValue .~ defaultHand & initialAttributes .~ ("rows" =: "20" <> "cols" =: "90")
+  inputEl <- el "div" $ textAreaElement config
+  ((defaultHand <$) -> postBuild) <- getPostBuild
   let inputTxtDyn = _textAreaElement_value inputEl
   dyn_ $
     inputTxtDyn
@@ -89,7 +137,7 @@ review = do
                           pure $ ix <$ pressEv
                         rec ixDyn <- foldDyn ($) 0 (leftmost $ minusOneEv : plusOneEv : (fmap const <$> actEvs))
                             ((subtract 1 <$) -> minusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == 0 then never <$ text "at ix 0" else button $ "-1")
-                            (((+1) <$) -> plusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == length nonPostActs then never <$ text ("at ix " <> tshow ix) else button "+1")
+                            (((+ 1) <$) -> plusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == length nonPostActs then never <$ text ("at ix " <> tshow ix) else button "+1")
                             let gsDyn = ixDyn <&> \ix -> gss !! ix
                             el "div" $ dyn_ $ gsDyn <&> gameTable
                         pure ()
