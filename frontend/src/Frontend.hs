@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -22,16 +23,25 @@ import Common.Server.Api
 import Common.Util (tshow)
 import Control.Arrow ((>>>))
 import Control.Lens
-  ( snoc, (^.)
+  ( snoc,
+    to,
+    (^.),
   )
 import Control.Monad (forM)
 import Data.Functor ((<&>))
+import Data.Map (Map)
+import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as T
 import GHC.Stack
 import GameLogic
 import GameTable
+import Handlers
 import qualified Head
+import JSDOM (nextAnimationFrame)
+import JSDOM.Types (Element (unElement), liftJSM, toElement)
+import Language.Javascript.JSaddle (JSM, JSVal, eval, js0, js1, jsf, jsgf, val)
 import Obelisk.Frontend
   ( Frontend (..),
     ObeliskWidget,
@@ -56,10 +66,9 @@ import RangeDisplay
     rangeDisplay,
   )
 import Reflex.Dom.Core
+import Servant.Common.Req (ReqResult (RequestFailure, ResponseFailure, ResponseSuccess))
 import Text.Megaparsec (parse)
-import JSDOM.Types (liftJSM, Element (unElement), toElement)
-import JSDOM (nextAnimationFrame)
-import Language.Javascript.JSaddle (jsf, js0, jsgf, js1, JSVal, val, eval, JSM)
+import Text.Megaparsec.Error (errorBundlePretty)
 
 frontend :: Frontend (R FrontendRoute)
 frontend =
@@ -115,44 +124,87 @@ defaultHand =
   \Enter(Auto)\n\
   \*** SUMMARY ***"
 
+getSuccess :: (ReqResult tag a -> Maybe a)
+getSuccess res = case res of
+  ResponseSuccess _ res _ -> Just res
+  ResponseFailure _ txt _ -> Nothing
+  RequestFailure _ txt -> Nothing
+
+postForReview ::
+  (MonadWidget t m) =>
+  Dynamic t ReviewHistory ->
+  Event t () ->
+  m (Event t ())
+postForReview reviewHist trigger = do
+  queryRunRes <-
+    (backendClient ^. reviewClient . to Handlers.postForReview)
+      (Right <$> reviewHist)
+      trigger
+  pure $ mapMaybe getSuccess queryRunRes
+
+compose :: Ord b => Map b c -> Map a b -> Map a c
+compose bc !ab
+  | null bc = Map.empty
+  | otherwise = mapMaybe (bc Map.!?) ab
+
 review ::
   forall js t m r.
   (ObeliskWidget js t (R FrontendRoute) m) =>
   RoutedT t r m ()
 review = mdo
   el "div" $ routeLink (FrontendRoute_Main :/ ()) $ text "home"
-  -- let config = def & textAreaElementConfig_initialValue .~ defaultHand & initialAttributes .~ ("rows" =: "20" <> "cols" =: "90")
   let config = def & textAreaElementConfig_initialValue .~ defaultHand & initialAttributes .~ ("rows" =: "20" <> "cols" =: "90")
   inputEl <- el "div" $ textAreaElement config
   let inputTxtDyn = _textAreaElement_value inputEl
+  let parsedHandDyn = parse pHand "" <$> inputTxtDyn
+  prerender_ (text "rendering") $
+    dyn_ $
+      parsedHandDyn
+        <&> ( \case
+                Left peb -> do
+                  el "div" $ text "cannot parse:"
+                  el "div" $ text $ T.pack $ errorBundlePretty peb
+                Right (fmap unsafeToUsdHand -> his) -> do
+                  let posToPlayer = compose (_handPlayerMap his) (_handSeatMap his)
+                  let reviewReq =
+                        ReviewHistory
+                          (sequence $ _playerHolding <$> posToPlayer)
+                          (Stack . _stack <$> posToPlayer)
+                          []
+                  ev <- button "submit"
+                  text $ tshow reviewReq
+                  Frontend.postForReview (constDyn reviewReq) ev
+                  pure ()
+            )
   prerender_ (text "rendering") $ do
     el "div" $
       dyn_ $
-        inputTxtDyn
-          <&> ( parse pHand ""
-                  >>> ( \case
-                          Left peb -> text $ tshow peb
-                          Right his -> do
-                            let usdHist = fmap unsafeToUsdHand his
-                            let (preflopHand, nonPostActs) = preflopState usdHist
-                            let gss = P.scanl' (\gs act -> either (error . show) id $ runGame (emulateAction act) gs) preflopHand nonPostActs
-                            (e, unzip -> (actEvs, comments)) <- el' "div" $ do
-                              forM (zip [1 ..] nonPostActs) $ \(ix, act) -> do
-                                (el_, _) <- el' "h3" $ text $ tshow act
-                                commentArea <- el "div" $ textAreaElement def
-                                pure $ (ix <$ domEvent Click el_, _textAreaElement_value commentArea)
-                            liftJSM $ nextAnimationFrame (\_ -> liftJSM $ do
-                              _ <- jsgf ("jQuery" :: Text) [toElement . _element_raw $ e] >>= (^. js1 ("accordion" :: Text) (eval ("({ active: false , collapsible: true })" :: Text)))
-                              pure ())
-                            el "div" $ dynText $ T.concat <$> sequence comments
-                            --  let actsWithGss = zip nonPostActs gss
-                            rec ixDyn <- foldDyn ($) 0 (leftmost $ minusOneEv : plusOneEv : (fmap const <$> actEvs))
-                                ((subtract 1 <$) -> minusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == 0 then never <$ text "at ix 0" else button $ "-1")
-                                (((+ 1) <$) -> plusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == length nonPostActs then never <$ text ("at ix " <> tshow ix) else button "+1")
-                                let gsDyn = ixDyn <&> \ix -> gss !! ix
-                                el "div" $ dyn_ $ gsDyn <&> gameTable
+        parsedHandDyn
+          <&> ( \case
+                  Left peb -> text $ tshow peb
+                  Right his -> do
+                    let usdHist = fmap unsafeToUsdHand his
+                    let (preflopHand, nonPostActs) = preflopState usdHist
+                    let gss = P.scanl' (\gs act -> either (error . show) id $ runGame (emulateAction act) gs) preflopHand nonPostActs
+                    (e, unzip -> (actEvs, comments)) <- el' "div" $ do
+                      forM (zip [1 ..] nonPostActs) $ \(ix, act) -> do
+                        (el_, _) <- el' "h3" $ text $ tshow act
+                        commentArea <- el "div" $ textAreaElement def
+                        pure $ (ix <$ domEvent Click el_, _textAreaElement_value commentArea)
+                    liftJSM $
+                      nextAnimationFrame
+                        ( \_ -> liftJSM $ do
+                            _ <- jsgf ("jQuery" :: Text) [toElement . _element_raw $ e] >>= (^. js1 ("accordion" :: Text) (eval ("({ active: false , collapsible: true })" :: Text)))
                             pure ()
-                      )
+                        )
+                    el "div" $ dynText $ T.concat <$> sequence comments
+                    --  let actsWithGss = zip nonPostActs gss
+                    rec ixDyn <- foldDyn ($) 0 (leftmost $ minusOneEv : plusOneEv : (fmap const <$> actEvs))
+                        ((subtract 1 <$) -> minusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == 0 then never <$ text "at ix 0" else button $ "-1")
+                        (((+ 1) <$) -> plusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == length nonPostActs then never <$ text ("at ix " <> tshow ix) else button "+1")
+                        let gsDyn = ixDyn <&> \ix -> gss !! ix
+                        el "div" $ dyn_ $ gsDyn <&> gameTable
+                    pure ()
               )
 
     -- liftJSM $ nextAnimationFrame $ \_ -> do

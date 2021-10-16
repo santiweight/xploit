@@ -1,33 +1,36 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Handlers where
 
-import           Common.Server.Api
-import           Control.Lens                   ( makeLenses
-                                                )
-import           Data.Text                      ( Text )
-import           Reflex.Dom
-import           Servant.Reflex                 ( QParam
-                                                , ReqResult, client
-                                                , BaseUrl(BasePath)
-
-                                                )
-import Servant.API
+import Common.Server.Api
+import Common.Server.Api (ReviewHistory)
+import Control.Lens
+  ( makeLenses,
+  )
 import Data.Proxy (Proxy (Proxy))
+import Data.Text (Text)
+import Reflex.Dom
+import Servant.API
+import Servant.Reflex
+  ( BaseUrl (BasePath),
+    QParam,
+    ReqResult,
+    client,
+  )
 
 -- loadHandClient :: forall t m. MonadWidget t m => AddHandClient t m
 -- loadHandClient = do
@@ -40,41 +43,52 @@ import Data.Proxy (Proxy (Proxy))
 
 loadHandClient :: forall t m. MonadWidget t m => AddHandClient t m
 loadHandClient = do
-  let _loadDir = client
-        (Proxy :: Proxy LoadHandHAPI)
-        (Proxy :: Proxy m)
-        (Proxy :: Proxy ())
-        (constDyn (BasePath "/"))
+  let _loadDir =
+        client
+          (Proxy :: Proxy LoadHandHAPI)
+          (Proxy :: Proxy m)
+          (Proxy :: Proxy ())
+          (constDyn (BasePath "/"))
   AddHandClient _loadDir
 
-backendClient :: forall t m . MonadWidget t m => BackendClient t m
+backendClient :: forall t m. MonadWidget t m => BackendClient t m
 backendClient = do
-  let (_queryApi :<|> _ :<|> _echo) = client (Proxy :: Proxy PokerAPI)
-                                             (Proxy :: Proxy m)
-                                             (Proxy :: Proxy ())
-                                             (constDyn (BasePath "/"))
-  MyClient _queryApi loadHandClient _echo
+  let (_queryApi :<|> _ :<|> _echo :<|> reviewApi) =
+        client
+          (Proxy :: Proxy PokerAPI)
+          (Proxy :: Proxy m)
+          (Proxy :: Proxy ())
+          (constDyn (BasePath "/"))
+  BackendClient _queryApi loadHandClient (ReviewClient reviewApi) _echo
+
+data ReviewClient t m = ReviewClient
+  { postForReview ::
+      Dynamic t (Either Text ReviewHistory) ->
+      Event t () ->
+      m (Event t (ReqResult () ()))
+  }
 
 data AddHandClient t m = AddHandClient
   -- { addFilesApi
   --     :: Dynamic t (QParam [FilePath])
   --     -> Event t ()
   --     -> m (Event t (ReqResult () ()))
-  { _addDirApi
-      :: Dynamic t (QParam FilePath)
-      -> Event t ()
-      -> m (Event t (ReqResult () ()))
+  { _addDirApi ::
+      Dynamic t (QParam FilePath) ->
+      Event t () ->
+      m (Event t (ReqResult () ()))
   }
 
-data BackendClient t m = MyClient
-  { _queryApi
-      :: Dynamic t (Either Text NodeQueryRequest)
-      -> Event t ()
-      -> m (Event t (ReqResult () NodeQueryResponse))
-  , _addClient :: AddHandClient t m
-  , _echo
-      :: Event t ()
-      -> m (Event t (ReqResult () ()))
+data BackendClient t m = BackendClient
+  { _queryApi ::
+      Dynamic t (Either Text NodeQueryRequest) ->
+      Event t () ->
+      m (Event t (ReqResult () NodeQueryResponse)),
+    _addClient :: AddHandClient t m,
+    _reviewClient :: ReviewClient t m,
+    _echo ::
+      Event t () ->
+      m (Event t (ReqResult () ()))
   }
 
 makeLenses ''BackendClient

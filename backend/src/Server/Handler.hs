@@ -102,9 +102,13 @@ runDb =
 -- server :: MonadSnap m => Server PokerAPI l m
 -- server = (queryServer :<|> addFilesServer :<|> echoServer)
 
+handReviewServer :: Server HandReview l Snap
+handReviewServer reviewHist = do
+  liftIO $ print $ reviewHist
+
 pokerServer :: Server PokerAPI l Snap
 -- pokerServer = queryServer :<|> loadHandServer :<|> echoServer
-pokerServer = queryServer :<|> loadHandServer :<|> echoServer
+pokerServer = queryServer :<|> loadHandServer :<|> echoServer :<|> handReviewServer
 
 parseInPath :: FilePath -> IO [History (Amount "USD")]
 parseInPath fp = do

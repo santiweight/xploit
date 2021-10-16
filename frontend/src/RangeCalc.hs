@@ -54,7 +54,6 @@ getCurrentNode nodeFilterD nodePathD includeHeroD =
 emptyQueryResponse :: NodeQueryResponse
 emptyQueryResponse = NodeQueryResponse [] (Range Map.empty) (Range Map.empty)
 
-
 getSuccess :: (ReqResult tag a -> Maybe a)
 getSuccess res = case res of
   ResponseSuccess _ res _ -> Just res
