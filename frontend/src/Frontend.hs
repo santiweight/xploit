@@ -22,7 +22,7 @@ import Common.Server.Api
 import Common.Util (tshow)
 import Control.Arrow ((>>>))
 import Control.Lens
-  ( snoc,
+  ( snoc, (^.)
   )
 import Control.Monad (forM)
 import Data.Functor ((<&>))
@@ -57,6 +57,9 @@ import RangeDisplay
   )
 import Reflex.Dom.Core
 import Text.Megaparsec (parse)
+import JSDOM.Types (liftJSM, Element (unElement), toElement)
+import JSDOM (nextAnimationFrame)
+import Language.Javascript.JSaddle (jsf, js0, jsgf, js1, JSVal, val, eval, JSM)
 
 frontend :: Frontend (R FrontendRoute)
 frontend =
@@ -70,46 +73,46 @@ frontend =
 defaultHand :: Text
 defaultHand =
   "\
-  \Bovada Hand #3754009075  Zone Poker ID#1365 HOLDEMZonePoker No Limit - 2019-03-31 05:42:59\
-  \Seat 1: UTG ($7.76 in chips)\
-  \Seat 2: UTG+1 ($4.05 in chips)\
-  \Seat 3: UTG+2 ($6.40 in chips)\
-  \Seat 4: Dealer ($4.08 in chips)\
-  \Seat 5: Small Blind ($13.57 in chips)\
-  \Seat 6: Big Blind [ME] ($5 in chips)\
-  \Dealer : Set dealer [4]\
-  \Small Blind : Small Blind $0.02\
-  \Big Blind  [ME] : Big blind $0.05\
-  \*** HOLE CARDS ***\
-  \UTG : Card dealt to a spot [8c Ts]\
-  \UTG+1 : Card dealt to a spot [7d Tc]\
-  \UTG+2 : Card dealt to a spot [9s 9c]\
-  \Dealer : Card dealt to a spot [Jd 4s]\
-  \Small Blind : Card dealt to a spot [Kd 5d]\
-  \Big Blind  [ME] : Card dealt to a spot [2d Kc]\
-  \UTG+1 : Leave(Auto)\
-  \Dealer : Leave(Auto)\
-  \UTG : Folds\
-  \UTG : Leave(Auto)\
-  \UTG+1 : Folds\
-  \Small Blind : Leave(Auto)\
-  \UTG+2 : Raises $0.15 to $0.15\
-  \Dealer : Folds\
-  \Small Blind : Folds\
-  \Big Blind  [ME] : Folds (timeout)\
-  \Big Blind  [ME] : Seat sit out\
-  \Big Blind  [ME] : Leave(Auto)\
-  \UTG+2 : Return uncalled portion of bet $0.10\
-  \UTG+2 : Does not show [9s 9c] (High Card)\
-  \UTG+2 : Hand result $0.12\
-  \UTG+2 : Leave(Auto)\
-  \Big Blind  [ME] : Enter(Auto)\
-  \Enter(Auto)\
-  \Enter(Auto)\
-  \Table deposit $0.26\
-  \Enter(Auto)\
-  \UTG : Enter(Auto)\
-  \Enter(Auto)\
+  \Bovada Hand #3754009075  Zone Poker ID#1365 HOLDEMZonePoker No Limit - 2019-03-31 05:42:59\n\
+  \Seat 1: UTG ($7.76 in chips)\n\
+  \Seat 2: UTG+1 ($4.05 in chips)\n\
+  \Seat 3: UTG+2 ($6.40 in chips)\n\
+  \Seat 4: Dealer ($4.08 in chips)\n\
+  \Seat 5: Small Blind ($13.57 in chips)\n\
+  \Seat 6: Big Blind [ME] ($5 in chips)\n\
+  \Dealer : Set dealer [4]\n\
+  \Small Blind : Small Blind $0.02\n\
+  \Big Blind  [ME] : Big blind $0.05\n\
+  \*** HOLE CARDS ***\n\
+  \UTG : Card dealt to a spot [8c Ts]\n\
+  \UTG+1 : Card dealt to a spot [7d Tc]\n\
+  \UTG+2 : Card dealt to a spot [9s 9c]\n\
+  \Dealer : Card dealt to a spot [Jd 4s]\n\
+  \Small Blind : Card dealt to a spot [Kd 5d]\n\
+  \Big Blind  [ME] : Card dealt to a spot [2d Kc]\n\
+  \UTG+1 : Leave(Auto)\n\
+  \Dealer : Leave(Auto)\n\
+  \UTG : Folds\n\
+  \UTG : Leave(Auto)\n\
+  \UTG+1 : Folds\n\
+  \Small Blind : Leave(Auto)\n\
+  \UTG+2 : Raises $0.15 to $0.15\n\
+  \Dealer : Folds\n\
+  \Small Blind : Folds\n\
+  \Big Blind  [ME] : Folds (timeout)\n\
+  \Big Blind  [ME] : Seat sit out\n\
+  \Big Blind  [ME] : Leave(Auto)\n\
+  \UTG+2 : Return uncalled portion of bet $0.10\n\
+  \UTG+2 : Does not show [9s 9c] (High Card)\n\
+  \UTG+2 : Hand result $0.12\n\
+  \UTG+2 : Leave(Auto)\n\
+  \Big Blind  [ME] : Enter(Auto)\n\
+  \Enter(Auto)\n\
+  \Enter(Auto)\n\
+  \Table deposit $0.26\n\
+  \Enter(Auto)\n\
+  \UTG : Enter(Auto)\n\
+  \Enter(Auto)\n\
   \*** SUMMARY ***"
 
 review ::
@@ -118,31 +121,44 @@ review ::
   RoutedT t r m ()
 review = mdo
   el "div" $ routeLink (FrontendRoute_Main :/ ()) $ text "home"
-  let config = def & textAreaElementConfig_setValue .~ postBuild & textAreaElementConfig_initialValue .~ defaultHand & initialAttributes .~ ("rows" =: "20" <> "cols" =: "90")
+  -- let config = def & textAreaElementConfig_initialValue .~ defaultHand & initialAttributes .~ ("rows" =: "20" <> "cols" =: "90")
+  let config = def & textAreaElementConfig_initialValue .~ defaultHand & initialAttributes .~ ("rows" =: "20" <> "cols" =: "90")
   inputEl <- el "div" $ textAreaElement config
-  ((defaultHand <$) -> postBuild) <- getPostBuild
   let inputTxtDyn = _textAreaElement_value inputEl
-  dyn_ $
-    inputTxtDyn
-      <&> ( parse pHand ""
-              >>> ( \case
-                      Left peb -> text $ tshow peb
-                      Right his -> do
-                        let usdHist = fmap unsafeToUsdHand his
-                        let (preflopHand, nonPostActs) = preflopState usdHist
-                        let gss = P.scanl' (\gs act -> either (error . show) id $ runGame (emulateAction act) gs) preflopHand nonPostActs
-                        --  let actsWithGss = zip nonPostActs gss
-                        actEvs <- forM (zip [1 ..] nonPostActs) $ \(ix, act) -> do
-                          pressEv <- el "div" $ button $ tshow act
-                          pure $ ix <$ pressEv
-                        rec ixDyn <- foldDyn ($) 0 (leftmost $ minusOneEv : plusOneEv : (fmap const <$> actEvs))
-                            ((subtract 1 <$) -> minusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == 0 then never <$ text "at ix 0" else button $ "-1")
-                            (((+ 1) <$) -> plusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == length nonPostActs then never <$ text ("at ix " <> tshow ix) else button "+1")
-                            let gsDyn = ixDyn <&> \ix -> gss !! ix
-                            el "div" $ dyn_ $ gsDyn <&> gameTable
-                        pure ()
-                  )
-          )
+  prerender_ (text "rendering") $ do
+    el "div" $
+      dyn_ $
+        inputTxtDyn
+          <&> ( parse pHand ""
+                  >>> ( \case
+                          Left peb -> text $ tshow peb
+                          Right his -> do
+                            let usdHist = fmap unsafeToUsdHand his
+                            let (preflopHand, nonPostActs) = preflopState usdHist
+                            let gss = P.scanl' (\gs act -> either (error . show) id $ runGame (emulateAction act) gs) preflopHand nonPostActs
+                            (e, unzip -> (actEvs, comments)) <- el' "div" $ do
+                              forM (zip [1 ..] nonPostActs) $ \(ix, act) -> do
+                                (el_, _) <- el' "h3" $ text $ tshow act
+                                commentArea <- el "div" $ textAreaElement def
+                                pure $ (ix <$ domEvent Click el_, _textAreaElement_value commentArea)
+                            liftJSM $ nextAnimationFrame (\_ -> liftJSM $ do
+                              _ <- jsgf ("jQuery" :: Text) [toElement . _element_raw $ e] >>= (^. js1 ("accordion" :: Text) (eval ("({ active: false , collapsible: true })" :: Text)))
+                              pure ())
+                            el "div" $ dynText $ T.concat <$> sequence comments
+                            --  let actsWithGss = zip nonPostActs gss
+                            rec ixDyn <- foldDyn ($) 0 (leftmost $ minusOneEv : plusOneEv : (fmap const <$> actEvs))
+                                ((subtract 1 <$) -> minusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == 0 then never <$ text "at ix 0" else button $ "-1")
+                                (((+ 1) <$) -> plusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == length nonPostActs then never <$ text ("at ix " <> tshow ix) else button "+1")
+                                let gsDyn = ixDyn <&> \ix -> gss !! ix
+                                el "div" $ dyn_ $ gsDyn <&> gameTable
+                            pure ()
+                      )
+              )
+
+    -- liftJSM $ nextAnimationFrame $ \_ -> do
+    --   _ <- (unElement . toElement $ _element_raw e) ^. jsf ("annotation" :: Text) ([] :: [Text])
+    --   pure ()
+    pure ()
   pure ()
 
 body ::

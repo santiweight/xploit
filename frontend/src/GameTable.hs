@@ -21,10 +21,8 @@ import RangeDisplay (prettyText)
 
 gameTable
   :: ( PrettyBetAmount b
-     , ObeliskWidget js t a m
      , IsBetSize b
-     , Show b
-     )
+     , DomBuilder t m)
   => GameState b
   -> m ()
 gameTable gameState = divClass "table" $ do
@@ -48,8 +46,8 @@ gameTable gameState = divClass "table" $ do
                (gameState ^. streetInvestments . at pos . non mempty)
 
 playerEl
-  :: (Show b, PrettyBetAmount b, ObeliskWidget js t a m)
-  => Bool -- ^
+  :: ( PrettyBetAmount b, DomBuilder t m)
+  =>Bool -- ^
   -> Stack b -- ^
   -> Position -- ^
   -> b -- ^

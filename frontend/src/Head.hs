@@ -26,6 +26,8 @@ head = do
   noUiSliderJs
   xploitCss
   pureCss
+  cssLink "//code.jquery.com/ui/1.13.0/themes/base/jquery-ui.css"
+  cssLink "/resources/demos/style.css"
  where
   cssLink uri = cssLinkAttrs uri mempty
   cssLinkAttrs uri attrs =

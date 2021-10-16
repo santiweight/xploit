@@ -61,7 +61,7 @@ let
 
   servantReflexSrc = fetchGit {
     url = "https://github.com/imalsogreg/servant-reflex";
-    rev = "37a3e8f2566627d910df140982bd49bf4dba171e";
+    rev = "20e2621cc2eca5fe38f8a01c7a159b0b9be524ea";
   };
 
   servantSnapSrc = pkgs.fetchFromGitHub {
@@ -70,6 +70,12 @@ let
     rev    = "af5172a6de5bb2a07eb1bf4c85952075ec6ecdf3";
     sha256 = "0973iq3gc36qhiqnf5vp5djqsrz70srw1r7g73v8wamw04dx0g3z";
   };
+  reflexDomRepo = fetchGit {
+    url = "https://github.com/reflex-frp/reflex-dom";
+    rev = "2236067109bff1741bbb27df8f643257a3cbf5eb";
+  };
+  reflexDomSrc = reflexDomRepo +  "/reflex-dom";
+  reflexDomCoreSrc = reflexDomRepo +  "/reflex-dom-core";
 in
 project ./. ({ pkgs, ... }: {
   inherit withHoogle;
@@ -81,6 +87,8 @@ project ./. ({ pkgs, ... }: {
       ver = "1.7.1";
       sha256 = "0ddf0wb06sqipklh00ah3wazy37g8hnnm99n8g96xmwbhakmpaz2";
     } {};
+    reflex-dom = pkgs.haskell.lib.dontCheck (self.callCabal2nix "reflex-dom" reflexDomSrc {});
+    reflex-dom-core = pkgs.haskell.lib.dontCheck (self.callCabal2nix "reflex-dom-core" reflexDomCoreSrc {});
     polysemy-plugin = pkgs.haskell.lib.dontCheck (self.callCabal2nix "polysemy-plugin" polysemyPluginSrc {});
     polysemy = pkgs.haskell.lib.dontCheck (self.callCabal2nix "polysemy" polysemySrc {});
     hspec-snap     = pkgs.haskell.lib.dontCheck (self.callHackage "hspec-snap" "1.0.1.0" { });
