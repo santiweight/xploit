@@ -32,16 +32,16 @@ import           Servant.Common.Req
 import Debug.Trace (traceShow)
 
 getCurrentNode
-  :: (ObeliskWidget js t r m)
+  :: (MonadWidget t m)
   => Dynamic t (Position, BetAction (IxRange (Amount "USD"))) -- ^
   -> Dynamic t [(Position, BetAction (IxRange (Amount "USD")))] -- ^
   -> Dynamic t Bool
   -> m (Dynamic t NodeQueryResponse)
 -- TODO use liftM3 to pull out one more level of function (unwrap the Dyn on the input args)
 getCurrentNode nodeFilterD nodePathD includeHeroD =
-  fmap join . prerender (pure $ constDyn emptyQueryResponse) $ do
+  do
     queryResponseEvSwitch <- dyn
-      $ getResultE nodePathD (snd <$> nodeFilterD) includeHeroD
+      $ getResultE nodePathD (fst <$> nodeFilterD) (snd <$> nodeFilterD) includeHeroD
     queryResponseEv <- switchHold never queryResponseEvSwitch
     -- Whenever we make a new query request, we must reset the current query response to
     -- the empty query response, since we no longer know what the node's range is
@@ -49,7 +49,7 @@ getCurrentNode nodeFilterD nodePathD includeHeroD =
     let displayedQueryReponseEv = leftmost
           [emptyQueryResponse <$ queryResponseEvSwitch, queryResponseEv]
     holdDyn emptyQueryResponse displayedQueryReponseEv
-  where getResultE = liftM3 getFilterResultD
+  where getResultE = liftM4 getFilterResultD
 
 emptyQueryResponse :: NodeQueryResponse
 emptyQueryResponse = NodeQueryResponse [] (Range Map.empty) (Range Map.empty)
@@ -57,8 +57,8 @@ emptyQueryResponse = NodeQueryResponse [] (Range Map.empty) (Range Map.empty)
 getSuccess :: (ReqResult tag a -> Maybe a)
 getSuccess res = case res of
   ResponseSuccess _ res _ -> Just res
-  ResponseFailure _ txt _ -> traceShow txt $ Nothing
-  RequestFailure _ txt      -> traceShow txt $ Nothing
+  ResponseFailure _ txt _ -> Nothing -- traceShow txt $ Nothing
+  RequestFailure _ txt      -> Nothing -- traceShow txt $ Nothing
 
 handsToRetrieve :: Int
 handsToRetrieve = 10
@@ -66,12 +66,13 @@ handsToRetrieve = 10
 getFilterResultD
   :: (MonadWidget t m)
   => [(Position, BetAction (IxRange (Amount "USD")))]
+  -> Position
   -> BetAction (IxRange (Amount "USD"))
   -> Bool
   -> m (Event t NodeQueryResponse)
-getFilterResultD nodePath nodeFilter includeHero = mdo
+getFilterResultD nodePath expectedPos nodeFilter includeHero = mdo
   queryRunRes <- (backendClient ^. queryApi)
-    (Right <$> constDyn (NodeQueryRequest nodePath includeHero nodeFilter))
+    (Right <$> constDyn (NodeQueryRequest nodePath includeHero expectedPos nodeFilter))
     startUpEv
   startUpEv <- getPostBuild
   pure $ mapMaybe getSuccess queryRunRes

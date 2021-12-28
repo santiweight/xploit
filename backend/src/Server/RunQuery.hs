@@ -23,6 +23,7 @@ import Data.Maybe
     listToMaybe,
   )
 import Data.Monoid (Sum (Sum))
+import Debug.Trace
 import Poker
 import Poker.Game.Types
   ( EvalState (..),
@@ -42,10 +43,16 @@ matchedHandsNum = 10
 
 getNode :: [History (Amount "USD")] -> NodeQueryRequest -> NodeQueryResponse
 getNode hands NodeQueryRequest {..} =
-  let handResults =
-        catMaybes $ flip (tryGetHandNode $ nodePath ++ [(case nodePath of {[] -> UTG; _ -> succ (fst $ last nodePath)}, undefined)]) includeHero <$> hands
+  let expectedPos = nodeExpectedPos
+      handResults =
+        catMaybes $
+          flip
+            ( tryGetHandNode expectedPos nodePath
+            )
+            includeHero
+            <$> hands
       accRange = joinHandResults . fmap snd $ handResults
-      getHandIfFilterMatched (hand, handResultRange) =
+      getHistoryIfFilterMatched (hand, handResultRange) =
         case foldMap
           (Sum . length . filter (doesBetMatch nodeFilter))
           handResultRange of
@@ -55,10 +62,13 @@ getNode hands NodeQueryRequest {..} =
         take matchedHandsNum
           . catMaybes
           $ handResults
-            <&> getHandIfFilterMatched
+            <&> getHistoryIfFilterMatched
               . second getResultRange
       -- TODO fix ""
-      getResultRange r = fromMaybe Map.empty $ r Map.!? show (maybe UTG fst . listToMaybe $ reverse nodePath)
+      -- FIXME This call to succ is non-total and is a hacky way to recover the current node's position. A better way
+      -- to do this is to have all players' positions so we can see who will act next. Alternatively, have the ranges accumulate
+      -- by the action's index (0..) in the list of all actions.
+      getResultRange r = fromMaybe Map.empty $ r Map.!? show (length nodePath)
       resultRange = getResultRange accRange
       (holdingRange, shapedHandRange) = getCurrentRanges nodeFilter resultRange
    in NodeQueryResponse {..}
@@ -90,13 +100,47 @@ applyFilterAsFreq ix =
 
 tryGetHandNode ::
   (IsBetSize b, IsBet b, Pretty b, Show b) =>
+  Position ->
   [(Position, BetAction (IxRange b))] ->
   History b ->
   Bool ->
   Maybe (History b, Map String (Map Hand [BetAction b]))
-tryGetHandNode branch hand includeHero =
+tryGetHandNode expectedPos branch hand includeHero =
   fmap (hand,) . listToMaybe . rights $
-    runIxBetsAsQuery
+    getPathRange
+      hand
+      expectedPos
+      -- TODO support hero
+      -- includeHero
+      branch
+
+getReviewRanges nodePath hands =
+  let handResults =
+        catMaybes $
+          flip
+            (tryGetReviewRanges nodePath)
+            False
+            <$> hands
+      accRange = joinHandResults . fmap snd $ handResults
+      ixBetsByActNum = Map.fromList $ zip [0 ..] (snd <$> nodePath)
+      -- TODO fix ""
+      -- FIXME This call to succ is non-total and is a hacky way to recover the current node's position. A better way
+      -- to do this is to have all players' positions so we can see who will act next. Alternatively, have the ranges accumulate
+      -- by the action's index (0..) in the list of all actions.
+      ranges = Map.mapWithKey (getCurrentRanges . (Map.!) ixBetsByActNum) accRange
+   in ranges
+  where
+    joinHandResults = Map.unionsWith (Map.unionWith (++))
+
+tryGetReviewRanges ::
+  (IsBetSize b, IsBet b, Pretty b, Show b) =>
+  [(Position, BetAction (IxRange b))] ->
+  History b ->
+  Bool ->
+  Maybe (History b, Map Int (Map Hand [BetAction b]))
+tryGetReviewRanges branch hand includeHero =
+  fmap (hand,) . fmap (Map.mapKeys read) . listToMaybe . rights $
+    getRangesForPath
       hand
       -- TODO support hero
       -- includeHero

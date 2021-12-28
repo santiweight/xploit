@@ -13,6 +13,7 @@ module Common.Server.Api where
 import Common.DB.Instances ()
 import Data.Aeson.TH
 import Data.Map (Map)
+import Data.Text (Text)
 import Money.Aeson
 import Poker
 import Poker.Game.Types
@@ -42,11 +43,24 @@ type LoadHandHAPI =
 data ReviewHistory = ReviewHistory
   { holes :: Maybe (Map Position Hand),
     stacks :: Map Position (Stack (Amount "USD")),
-    acts :: [Poker.Game.Types.Action (Amount "USD")]
+    acts :: [ReviewAction]
   }
   deriving (Show, Eq)
 
-type HandReview = "review" :> "submit" :> ReqBody '[JSON] ReviewHistory :> Post '[JSON] ()
+data ReviewAction = ReviewAction
+  { act :: Poker.Game.Types.Action (Amount "USD"),
+    comment :: Text
+  }
+  deriving (Show, Eq)
+
+type HandReview =
+  "review"
+    :> ( ("submit" :> ReqBody '[JSON] ReviewHistory :> Post '[JSON] ())
+           :<|> ( "range"
+                    :> ReqBody '[JSON] [Poker.Game.Types.Action (Amount "USD")]
+                    :> Post '[JSON] (Map Int (Range Hand Double, Range ShapedHand Double))
+                )
+       )
 
 type AddHandFile =
   QueryParam "contents" String
@@ -60,6 +74,7 @@ type PokerAPI = "api" :> (QueryAPI :<|> LoadHandHAPI :<|> Echo :<|> HandReview)
 data NodeQueryRequest = NodeQueryRequest
   { nodePath :: [(Position, BetAction (IxRange (Amount "USD")))],
     includeHero :: Bool,
+    nodeExpectedPos :: Position,
     nodeFilter :: BetAction (IxRange (Amount "USD"))
   }
   deriving (Show)
@@ -74,3 +89,4 @@ data NodeQueryResponse = NodeQueryResponse
 deriveJSON defaultOptions ''NodeQueryRequest
 deriveJSON defaultOptions ''NodeQueryResponse
 deriveJSON defaultOptions ''ReviewHistory
+deriveJSON defaultOptions ''ReviewAction

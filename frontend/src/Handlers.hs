@@ -21,8 +21,11 @@ import Common.Server.Api (ReviewHistory)
 import Control.Lens
   ( makeLenses,
   )
+import Data.Map (Map)
 import Data.Proxy (Proxy (Proxy))
 import Data.Text (Text)
+import Poker
+import qualified Poker.Game.Types
 import Reflex.Dom
 import Servant.API
 import Servant.Reflex
@@ -53,19 +56,23 @@ loadHandClient = do
 
 backendClient :: forall t m. MonadWidget t m => BackendClient t m
 backendClient = do
-  let (_queryApi :<|> _ :<|> _echo :<|> reviewApi) =
+  let (_queryApi :<|> _ :<|> _echo :<|> (reviewSubmitApi :<|> reviewRangesApi)) =
         client
           (Proxy :: Proxy PokerAPI)
           (Proxy :: Proxy m)
           (Proxy :: Proxy ())
           (constDyn (BasePath "/"))
-  BackendClient _queryApi loadHandClient (ReviewClient reviewApi) _echo
+  BackendClient _queryApi loadHandClient (ReviewClient reviewSubmitApi reviewRangesApi) _echo
 
 data ReviewClient t m = ReviewClient
   { postForReview ::
       Dynamic t (Either Text ReviewHistory) ->
       Event t () ->
-      m (Event t (ReqResult () ()))
+      m (Event t (ReqResult () ())),
+    reviewRanges ::
+      Dynamic t (Either Text [Poker.Game.Types.Action (Amount "USD")]) ->
+      Event t () ->
+      m (Event t (ReqResult () (Map Int (Range Hand Double, Range ShapedHand Double))))
   }
 
 data AddHandClient t m = AddHandClient

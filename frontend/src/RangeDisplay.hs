@@ -51,7 +51,7 @@ rangeCellSize :: Int
 rangeCellSize = 50
 
 rangeDisplay
-  :: (DomBuilder t m, ObeliskWidget js t r m)
+  :: (MonadWidget t m)
   => Dynamic t (Range ShapedHand Double)
   -> m (Event t ShapedHand)
 rangeDisplay displayRangeD = execFirstEventWriterT $ do
@@ -68,7 +68,7 @@ rangeDisplay displayRangeD = execFirstEventWriterT $ do
     LT -> MkOffsuit headerRank rowRank
 
 holdingDisplay
-  :: (ObeliskWidget js t r m)
+  :: _
   => Dynamic t ShapedHand
   -> Dynamic t (Range Hand Double)
   -> m (Event t Hand)
@@ -106,7 +106,7 @@ prettyText :: Pretty a => a -> Text
 prettyText = renderStrict . layoutCompact . pretty
 
 rangeCell
-  :: (DomBuilder t m, ObeliskWidget js t r m, Pretty k, Ord k)
+  :: (DomBuilder t m, MonadWidget t m, Pretty k, Ord k)
   => k
   -> Dynamic t (Range k Double)
   -> m (Event t (First k))

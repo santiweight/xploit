@@ -27,9 +27,10 @@ import Control.Lens
     to,
     (^.),
   )
-import Control.Monad (forM)
+import Control.Monad (forM, join)
 import Data.Functor ((<&>))
-import Data.Map (Map)
+import Data.List (unzip4)
+import Data.Map (Map, mapWithKey)
 import qualified Data.Map as Map
 import qualified Data.Map.Strict as Map
 import Data.Text (Text)
@@ -41,7 +42,8 @@ import Handlers
 import qualified Head
 import JSDOM (nextAnimationFrame)
 import JSDOM.Types (Element (unElement), liftJSM, toElement)
-import Language.Javascript.JSaddle (JSM, JSVal, eval, js0, js1, jsf, jsgf, val)
+import Language.Javascript.JSaddle (JSM, JSVal, ToJSVal (toJSVal), eval, js0, js1, js3, jsf, jsgf, val)
+import Money (Approximation (Round), defaultDecimalConf, denseFromDiscrete, denseToDecimal)
 import Obelisk.Frontend
   ( Frontend (..),
     ObeliskWidget,
@@ -69,6 +71,7 @@ import Reflex.Dom.Core
 import Servant.Common.Req (ReqResult (RequestFailure, ResponseFailure, ResponseSuccess))
 import Text.Megaparsec (parse)
 import Text.Megaparsec.Error (errorBundlePretty)
+import Poker.Query.ActionIx (IxRange(ExactlyRn))
 
 frontend :: Frontend (R FrontendRoute)
 frontend =
@@ -171,7 +174,7 @@ review = mdo
                           (sequence $ _playerHolding <$> posToPlayer)
                           (Stack . _stack <$> posToPlayer)
                           []
-                  ev <- button "submit"
+                  ev <- el "div" $ button "submit"
                   text $ tshow reviewReq
                   Frontend.postForReview (constDyn reviewReq) ev
                   pure ()
@@ -186,24 +189,70 @@ review = mdo
                     let usdHist = fmap unsafeToUsdHand his
                     let (preflopHand, nonPostActs) = preflopState usdHist
                     let gss = P.scanl' (\gs act -> either (error . show) id $ runGame (emulateAction act) gs) preflopHand nonPostActs
-                    (e, unzip -> (actEvs, comments)) <- el' "div" $ do
-                      forM (zip [1 ..] nonPostActs) $ \(ix, act) -> do
-                        (el_, _) <- el' "h3" $ text $ tshow act
-                        commentArea <- el "div" $ textAreaElement def
-                        pure $ (ix <$ domEvent Click el_, _textAreaElement_value commentArea)
+                    (e, unzip4 -> (actEvs, mouseOverEvs, mouseLeaveEvs, comments)) <-
+                      elAttr "div" ("class" =: "foo" <> "style" =: "width:350px") $ do
+                        el' "div" $ do
+                          forM (zip [0 ..] nonPostActs) $ \(ix, act) -> do
+                            (el_, _) <- el' "h3" $ text $ toShortText act
+                            commentArea <- el "div" $ textAreaElement def
+                            pure (ix <$ domEvent Click el_, ix <$ domEvent Mouseover el_, ix <$ domEvent Mouseleave el_, _textAreaElement_value commentArea)
+                    let mouseOverEv = leftmost mouseOverEvs
+                    let mouseLeaveEv = leftmost mouseLeaveEvs
+                    currHoverDyn <- holdDyn Nothing (leftmost [Just <$> mouseOverEv, Nothing <$ mouseLeaveEv])
+                    dynText $ tshow <$> currHoverDyn
                     liftJSM $
                       nextAnimationFrame
                         ( \_ -> liftJSM $ do
-                            _ <- jsgf ("jQuery" :: Text) [toElement . _element_raw $ e] >>= (^. js1 ("accordion" :: Text) (eval ("({ active: false , collapsible: true })" :: Text)))
+                            _ <- jsgf ("jQuery" :: Text) [toElement . _element_raw $ e] >>= (^. js1 ("accordion" :: Text) (eval ("({ active: 0 , collapsible: false })" :: Text)))
                             pure ()
                         )
                     el "div" $ dynText $ T.concat <$> sequence comments
                     --  let actsWithGss = zip nonPostActs gss
-                    rec ixDyn <- foldDyn ($) 0 (leftmost $ minusOneEv : plusOneEv : (fmap const <$> actEvs))
-                        ((subtract 1 <$) -> minusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == 0 then never <$ text "at ix 0" else button $ "-1")
-                        (((+ 1) <$) -> plusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == length nonPostActs then never <$ text ("at ix " <> tshow ix) else button "+1")
-                        let gsDyn = ixDyn <&> \ix -> gss !! ix
-                        el "div" $ dyn_ $ gsDyn <&> gameTable
+                    ixDyn <- mdo ixDyn <- foldDyn ($) 0 (leftmost $ minusOneEv : plusOneEv : (fmap const <$> actEvs))
+                                 ((subtract 1 <$) -> minusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == 0 then never <$ text "at ix 0" else button $ "-1")
+                                 (((+ 1) <$) -> plusOneEv) <- switchHold never =<< dyn (ixDyn <&> \ix -> if ix == length nonPostActs then never <$ text ("at ix " <> tshow ix) else button "+1")
+                                 let gsDyn = ixDyn <&> \ix -> gss !! ix
+                                 elAttr "div" ("style" =: "padding-top:400px") $ dyn_ $ gsDyn <&> gameTable
+                                 performEvent_ $
+                                   tagPromptlyDyn ixDyn (leftmost [minusOneEv, plusOneEv]) <&> \curr -> do
+                                     liftJSM $
+                                       nextAnimationFrame
+                                         ( \_ -> liftJSM $ do
+                                             newIx <- (toJSVal (curr :: Int) :: JSM JSVal)
+                                             _ <- jsgf ("jQuery" :: Text) [toElement . _element_raw $ e] >>= (^. js3 ("accordion" :: Text) (eval ("\"option\"" :: Text)) (eval ("\"active\"" :: Text)) newIx)
+                                             pure ()
+                                         )
+                                 pure ixDyn
+                    rec rangesResponse :: (Event t (ReqResult () (Map Int (Range Hand Double, Range ShapedHand Double)))) <-
+                          (backendClient ^. reviewClient . to Handlers.reviewRanges)
+                            (constDyn $ Right nonPostActs)
+                            getRangesEv
+                        rangesOpt <- holdDyn Nothing (fmap Just . mapMaybe getSuccess $ rangesResponse)
+                        el "div" $
+                          dyn_ $
+                            rangesOpt
+                              <&> ( \case
+                                      Nothing -> text "nothing loaded yet"
+                                      Just m -> dyn_ $ ixDyn <&> (\ix -> do
+                                        prerender (pure ()) $ do
+                                          sequence_ $ do
+                                            Map.assocs m <&> (\(num, (shapedRange, holdingRange)) -> do
+                                              el "div" $ text (tshow num)
+                                              -- rangeDisplay (constDyn holdingRange)
+                                              pure () )
+                                          filterBetD <- betBtns (fmap ExactlyRn $ gss !! ix) never
+                                          responseD <- getCurrentNode
+                                            filterBetD
+                                            (constDyn $ fmap (fmap (fmap ExactlyRn)) $ take ix $ go $ nonPostActs)
+                                            (constDyn True)
+                                          selectShapedHandD <-
+                                            rangeDisplayWidget
+                                              (responseD <&> shapedHandRange)
+                                          _ <- holdingDisplay selectShapedHandD (responseD <&> holdingRange)
+                                          pure ())
+                                  )
+                        getRangesEv <- button "getRanges"
+
                     pure ()
               )
 
@@ -213,11 +262,38 @@ review = mdo
     pure ()
   pure ()
 
+go :: [Poker.Game.Types.Action (Amount "USD")] -> [(Position, BetAction (Amount "USD"))]
+go bar = case bar of
+  [] -> []
+  x0 : x1 -> case x0 of
+    (ac) -> case ac of
+      Poker.Game.Types.MkPlayerAction pa -> case pa of
+        Poker.Game.Types.PlayerAction po ba -> (po, ba) : go x1
+      Poker.Game.Types.MkDealerAction da -> []
+      Poker.Game.Types.MkPostAction pa -> go x1
+
+toShortText :: Poker.Game.Types.Action (Amount "USD") -> Text
+toShortText (MkPlayerAction pav) = case pav of
+  Poker.Game.Types.PlayerAction po ba ->
+    tshow po <> " " <> case ba of
+      Call am -> "calls " <> amtToText am
+      Raise am am' -> "raises to " <> amtToText am'
+      AllInRaise am am' -> "raises all in to " <> amtToText am'
+      Bet am -> "bets " <> amtToText am
+      AllIn am -> "calls all in " <> amtToText am
+      Fold -> "folds"
+      Check -> "checks"
+toShortText (Poker.Game.Types.MkDealerAction da) = "TODO"
+toShortText (MkPostAction pa) = "TODO"
+
+amtToText :: Amount "USD" -> Text
+amtToText (unAmount -> amt) = "$" <> denseToDecimal defaultDecimalConf Round (denseFromDiscrete amt)
+
 body ::
   forall js t m r.
   (ObeliskWidget js t (R FrontendRoute) m) =>
   RoutedT t r m ()
-body = do
+body = prerender_ (pure ()) $ do
   routeLink (FrontendRoute_Review :/ ()) $ text "review"
   el "div" $ text "include hero? Note: does nothing right now..."
   includeHeroD <- _inputElement_checked <$> checkBox
@@ -235,11 +311,14 @@ body = do
       filterBetD
       (getNodePath <$> gameTreeD)
       includeHeroD
-  selectShapedHandD <-
-    rangeDisplayWidget
-      (nodeQueryResponseD <&> shapedHandRange)
-  _ <- holdingDisplay selectShapedHandD (nodeQueryResponseD <&> holdingRange)
-  matchedHandsDisplay nodeQueryResponseD
+  prerender_ (pure ()) $ do
+      selectShapedHandD <-
+        rangeDisplayWidget
+          (nodeQueryResponseD <&> shapedHandRange)
+      _ <- holdingDisplay selectShapedHandD (nodeQueryResponseD <&> holdingRange)
+      matchedHandsDisplay nodeQueryResponseD
+      pure ()
+  pure ()
   where
     getNodePath = fmap (\(pos, act, _) -> (pos, act)) . restNodes
 
@@ -265,13 +344,10 @@ body = do
         gameStateDyn <&> \gameState ->
           divClass "vue-container" $ gameTable gameState
 
-    rangeDisplayWidget currRange = do
-      selectShapedHandE <- rangeDisplay currRange
-      holdDyn (mkPair Ace) selectShapedHandE
 
     lockNodeBtn filterBetD = el "div" $ do
       lockNodeEv <- button "Lock Node"
-      pure $ tagPromptlyDyn filterBetD lockNodeEv
+      pure $ tag (current filterBetD) lockNodeEv
 
     accNodesFun ::
       (Pretty b, IsBet b) =>
@@ -283,6 +359,10 @@ body = do
       Root init nodes ->
         let (_, _, prevGameSt) = P.last nodes
          in Root init (nodes `snoc` (pos, act, doPosAct (pos, act) prevGameSt))
+
+rangeDisplayWidget currRange = do
+  selectShapedHandE <- rangeDisplay currRange
+  holdDyn (mkPair Ace) selectShapedHandE
 
 data GameTree b act = Root
   { rootGameState :: GameState b,

@@ -15,6 +15,7 @@ import           Poker.Game.Types
 import           Poker.Query.ActionIx
 import Poker.Game.Emulate (emulateAction)
 import Prettyprinter
+import Debug.Trace
 -- import           Poker.Game.HasAvailableActions ( HasAvailableActions(..) )
 
 -- initState :: GameState (Amount "USD")
@@ -75,8 +76,8 @@ defRangeState = GameState
   { _stateStakes       = Stake AnyRn
   , _posToStack       = Map.fromList
                            [ (UTG, Stack AnyRn)
-                           , (UTG, Stack AnyRn)
-                           , (UTG, Stack AnyRn)
+                           , (UTG1, Stack AnyRn)
+                           , (UTG2, Stack AnyRn)
                            , (BU , Stack AnyRn)
                            , (SB , Stack AnyRn)
                            , (BB , Stack AnyRn)
@@ -159,7 +160,7 @@ doPosAct (pos, bet) gameSt =
   let emulateActionM =
         emulateAction (MkPlayerAction $ PlayerAction pos bet)
   in  case execStateT emulateActionM gameSt of
-        Left  e -> gameSt -- TODO output error
+        Left  e -> traceShow "BIG OLE ERROR BECAUSE INVALID ACT" $ gameSt -- TODO output error
         Right r -> r
 
 instance (Monoid b, Semigroup b) => Semigroup (IxRange b) where

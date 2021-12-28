@@ -14,29 +14,34 @@
 
 module Server.Base where
 
-import           Codec.Serialise                ( serialise )
-import           Control.Monad.Logger           ( LoggingT
-                                                , runStdoutLoggingT
-                                                )
-import           Control.Monad.Reader           ( runReaderT )
-import           Data.ByteString                ( ByteString )
-import qualified Data.ByteString.Lazy          as L
-import qualified Data.Text                     as T
-import           Data.Text                      ( Text )
-import           Data.Time                      ( TimeZone
-                                                , UTCTime
-                                                )
-import           Data.Time.LocalTime            ( getCurrentTimeZone
-                                                , localTimeToUTC
-                                                )
-import           Database.Persist
-import           Database.Persist.Postgresql
-import           Database.Persist.TH           as PTH
-import           Poker
-import           Poker.History.Bovada.Model
-
-import           Common.DB.Instances            ( )
-import           Server.Instances               ( )
+import Codec.Serialise (serialise)
+import Common.DB.Instances ()
+import Common.Server.Api (ReviewHistory (ReviewHistory))
+import Control.Monad.Logger
+  ( LoggingT,
+    runStdoutLoggingT,
+  )
+import Control.Monad.Reader (runReaderT)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import Data.Time
+  ( TimeZone,
+    UTCTime,
+  )
+import Data.Time.LocalTime
+  ( getCurrentTimeZone,
+    localTimeToUTC,
+  )
+import Database.Persist
+import Database.Persist.Postgresql
+import Database.Persist.TH as PTH
+import Poker
+import Poker.History.Bovada.Model
+import Server.Instances ()
 
 PTH.share
   [PTH.mkPersist PTH.sqlSettings, PTH.mkMigrate "migrateAll"]
@@ -49,6 +54,9 @@ PTH.share
     serial ByteString -- @Hand (not [Action])
     UniqueHandID handId
     deriving Show Read
+  ReviewHistoryP
+    serial ByteString -- @ReviewHistory
+    deriving Show Read
 |]
 
 connString :: ConnectionString
@@ -56,8 +64,9 @@ connString = "host=127.0.0.1 user=postgres dbname=xploitdb password=postgres"
 
 runAction :: ConnectionString -> SqlPersistT (LoggingT IO) a -> IO a
 runAction connectionString action = do
-  runStdoutLoggingT $ withPostgresqlConn connectionString $ \backend ->
-    runReaderT action backend
+  runStdoutLoggingT $
+    withPostgresqlConn connectionString $ \backend ->
+      runReaderT action backend
 
 migrateDB :: IO ()
 migrateDB = runAction connString (runMigration migrateAll)
@@ -77,5 +86,12 @@ insertHand hand = do
           handHHandHistoryText = _handText,
           handHTableTy = gameTy header,
           handHTime = localTimeToUTC tz $ time header,
-          handHSerial = L.toStrict $ serialise h
+          handHSerial = BL.toStrict $ serialise h
         }
+
+insertReview :: ReviewHistory -> IO ReviewHistoryPId
+insertReview hist = do
+  runAction connString . insert . toReviewHistoryP $ hist
+  where
+    toReviewHistoryP :: ReviewHistory -> ReviewHistoryP
+    toReviewHistoryP = ReviewHistoryP . BL.toStrict . serialise

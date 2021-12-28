@@ -1,8 +1,0 @@
-cradle:
-  cabal:
-    - path: "./src"
-      component: "lib:backend"
-    - path: "./src-bin"
-      component: "exe:backend"
-    # - path: "./test"
-    #   component: "test:all-tests"

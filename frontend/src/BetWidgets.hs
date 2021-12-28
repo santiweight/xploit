@@ -28,6 +28,7 @@ import Control.Monad.Fix
 import Control.Monad.State (evalStateT)
 import Data.Bifunctor
 import qualified Data.Text as T
+import Debug.Trace
 import GameLogic ()
 import Money (discrete, mkSomeDiscrete, someDiscreteAmount, toSomeDiscrete)
 import Obelisk.Frontend
@@ -75,7 +76,7 @@ toSing = \case
   other -> error $ "not yet supported: " ++ show other
 
 betBtns ::
-  (ObeliskWidget js t r m) =>
+  (Prerender js t m, MonadWidget t m) =>
   GameState (IxRange (Amount "USD")) ->
   Event t (GameState (IxRange (Amount "USD"))) ->
   m (Dynamic t (Position, BetAction (IxRange (Amount "USD"))))
@@ -86,14 +87,14 @@ betBtns initialGameState gameStateEv =
       (betBtnsInner <$> gameStateEv)
 
 betBtnsInner ::
-  (ObeliskWidget js t r m) =>
+  (Prerender js t m, MonadWidget t m) =>
   GameState (IxRange (Amount "USD")) ->
   m (Dynamic t (Position, BetAction (IxRange (Amount "USD"))))
 betBtnsInner gameState = do
   -- TODO remove unsafe head usage
-  let pos :: Position = head $ _toActQueue gameState
+  let pos :: Position = head $ traceShowId $ _toActQueue gameState
   let availActs = [ACall @(IxRange (Amount "USD")) AnyRn, AFold, ACheck, ABet AnyRn AnyRn, ARaiseBetween AnyRn AnyRn]
-  text $ tshow $ availActs
+  text $ tshow availActs
   elClass "div" "bet-buttons-container" $ mdo
     betEvs <- forM availActs $ \availAct -> betBtnOf pos (fromAvailAct availAct) chosenBetDyn
     chosenBetDyn <- holdDyn SFold $ toSing . snd <$> leftmost betEvs
@@ -119,7 +120,7 @@ fromAvailAct (ABet ir ir') = Bet ir'
 amountToInt = fromIntegral . someDiscreteAmount . toSomeDiscrete . unAmount
 
 betBtnOf ::
-  (ObeliskWidget js t r m) =>
+  (Prerender js t m, MonadWidget t m) =>
   Position ->
   BetAction (IxRange (Amount "USD")) ->
   Dynamic t SBetAction ->
