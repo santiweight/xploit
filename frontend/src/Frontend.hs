@@ -298,6 +298,10 @@ body = prerender_ (pure ()) $ do
   el "div" $ text "include hero? Note: does nothing right now..."
   includeHeroD <- _inputElement_checked <$> checkBox
   rec tableWidget $ currGameState <$> gameTreeD
+      -- The fact that betBtns changes with the updated state, means that the bet buttons change
+      -- the frame _after_ the game state changes. This causes duplicate requests for the tree, with
+      -- the first request being invalid. In order to avoid this, using updated is incorrect, and furthermore,
+      -- betBtns needs to be based on a dyn construct, I believe.
       filterBetD <- betBtns initRangeState $ updated (currGameState <$> gameTreeD)
       nodeLockEv <- lockNodeBtn filterBetD
       gameTreeD <-
