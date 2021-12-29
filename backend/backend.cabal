@@ -8,6 +8,7 @@ library
   if impl(ghcjs)
     buildable: False
   build-depends: base
+               , aeson
                , directory
                , dir-traverse
                , common
@@ -21,17 +22,18 @@ library
                , containers
                , esqueleto
                , frontend
+               , hedis
                , lens
                , megaparsec
                , monad-logger
                , mtl
+               , obelisk-backend
+               , obelisk-route
                , persistent
                , persistent-postgresql
                , persistent-template
                , polysemy
                , prettyprinter
-               , obelisk-backend
-               , obelisk-route
                , resourcet
                , safe-money
                , safe-money-aeson

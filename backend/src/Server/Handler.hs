@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Server.Handler where
 
@@ -11,7 +12,9 @@ import Control.Lens as L
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
+import Control.Monad.Reader (ReaderT)
 import Control.Monad.Trans.Resource
+import Data.Bifunctor (Bifunctor (second))
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
@@ -21,11 +24,14 @@ import qualified Data.Text.IO as T
 import Data.Void
 import Database.Esqueleto hiding ((<&>))
 import Database.Persist.Postgresql
+import Database.Redis
+import qualified Database.Redis as Redis
 import Poker
 import qualified Poker.Game.Types
 import Poker.History.Bovada.Model
 import Poker.History.Bovada.Parser
 import Poker.History.Types
+import Poker.Query.ActionIx (IxRange (ExactlyRn))
 import "servant-snap" Servant
 import Server.Base
 import Server.DBQuery
@@ -36,8 +42,12 @@ import System.Directory
 import System.Directory.Recursive
 import qualified System.FilePath.Find as FP
 import Text.Megaparsec
-import Data.Bifunctor (Bifunctor(second))
-import Poker.Query.ActionIx (IxRange(ExactlyRn))
+import Data.Aeson
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString as BS
+import Server.DBQuery (selectAllHands)
+import Poker.BigBlind (normalizeAmount)
+import Common.Server.Api (NodeQueryRequest(NodeQueryRequest))
 
 addHandFileServer :: MonadSnap m => Server AddHandFile l m
 addHandFileServer contentsMay = undefined -- do
@@ -85,15 +95,32 @@ addDirServer (Just dirPath) = do
 queryServer :: MonadSnap m => Server QueryAPI l m
 queryServer = queryHandler
   where
-    queryHandler :: MonadSnap m => NodeQueryRequest -> m NodeQueryResponse
-    queryHandler request@NodeQueryRequest {..} = do
-      -- liftIO migrateDB
-      liftIO $ print $ "running query" ++ show nodePath
-      hands <- liftIO $ runDb selectAllHands
-      liftIO $ print $ "Running query against " <> show (length hands) <> " hands"
-      let res = getNode hands request
-      -- liftIO $ print $ res
-      pure $ res
+    queryHandler :: MonadSnap m => SomeNodeQueryRequest -> m NodeQueryResponse
+    queryHandler (SomeNodeQueryRequest USD req) = go req (normFunc req)
+    normFunc :: NodeQueryRequest "USD" -> (History (Amount "USD") -> forall b. Maybe (History b))
+    normFunc req = case nodeNormalisation req of
+      NormToBB -> \hist -> case hist of
+        (_handStakes -> stake) -> Just (normalizeAmount stake <$> hist)
+      NoNorm -> Just
+    go :: MonadSnap m => NodeQueryRequest "USD" -> (History (Amount "USD") -> Maybe (History b)) -> m NodeQueryResponse
+    go request@NodeQueryRequest {..} normFunc = do
+      conn <- liftIO $ checkedConnect defaultConnectInfo
+      cachedRes <- liftIO $ runRedis conn $
+        Redis.get (BL.toStrict $ encode request)
+      case cachedRes of
+        Left re -> error $ show re
+        Right m_bs -> case m_bs of
+            Nothing -> do
+                -- liftIO migrateDB
+                liftIO $ print $ "running query" ++ show nodePath
+                hands <- liftIO $ runDb selectAllHands
+                liftIO $ print $ "Running query against " <> show (length hands) <> " hands"
+                let res = getNode hands request
+                liftIO $ runRedis conn $ Redis.set (BL.toStrict $ encode request) (BL.toStrict $ encode res)
+                -- liftIO $ print $ res
+                pure res
+            -- FIXME partial
+            Just bs -> pure . fromJust $ (Data.Aeson.decode $ BL.fromStrict bs)
 
 runDb :: SqlPersistM a -> IO a
 runDb =
@@ -135,8 +162,16 @@ go bar = case bar of
       Poker.Game.Types.MkPostAction pa -> go x1
 
 pokerServer :: Server PokerAPI l Snap
--- pokerServer = queryServer :<|> loadHandServer :<|> echoServer
-pokerServer = queryServer :<|> loadHandServer :<|> echoServer :<|> handReviewServer
+pokerServer = queryServer :<|> loadHandServer :<|> echoServer :<|> handReviewServer :<|> statsServer
+
+statsServer :: Snap (Map String String)
+statsServer = do
+  allHands <- liftIO $ runDb selectAllHands
+  let handsByStakes = foldr go Map.empty allHands
+  pure $ Map.fromList [("numHands", show $ length allHands), ("handsByStakes", show handsByStakes)]
+  where
+    go :: History (Amount "USD") -> Map (Stake (Amount "USD")) Int ->  Map (Stake (Amount "USD")) Int
+    go (_handStakes -> stakes) m = m & L.at stakes . non 0 L.%~ (+1)
 
 parseInPath :: FilePath -> IO [History (Amount "USD")]
 parseInPath fp = do

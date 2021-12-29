@@ -41,7 +41,7 @@ import Prelude hiding (pred)
 matchedHandsNum :: Int
 matchedHandsNum = 10
 
-getNode :: [History (Amount "USD")] -> NodeQueryRequest -> NodeQueryResponse
+getNode :: [History (Amount "USD")] -> NodeQueryRequest "USD" -> NodeQueryResponse
 getNode hands NodeQueryRequest {..} =
   let expectedPos = nodeExpectedPos
       handResults =
@@ -76,8 +76,9 @@ getNode hands NodeQueryRequest {..} =
     joinHandResults = Map.unionsWith (Map.unionWith (++))
 
 getCurrentRanges ::
-  BetAction (IxRange (Amount "USD")) ->
-  Map Hand [BetAction (Amount "USD")] ->
+  IsBet b =>
+  BetAction (IxRange b) ->
+  Map Hand [BetAction b] ->
   (Range Hand Double, Range ShapedHand Double)
 getCurrentRanges currActFilter nodeRange =
   let currActFilterFunction = doesBetMatch currActFilter
@@ -91,7 +92,7 @@ getCurrentRanges currActFilter nodeRange =
     holdingRangeToShapedRange = Map.mapKeysWith (++) handToShaped
 
 applyFilterAsFreq ::
-  (BetAction (Amount "USD") -> Bool) -> Map k [BetAction (Amount "USD")] -> Map k Double
+  (BetAction b -> Bool) -> Map k [BetAction b] -> Map k Double
 applyFilterAsFreq ix =
   fmap
     ( \acts ->
@@ -114,6 +115,9 @@ tryGetHandNode expectedPos branch hand includeHero =
       -- includeHero
       branch
 
+getReviewRanges :: (Pretty b, IsBet b) => [(Position, BetAction (IxRange b))]
+  -> [History b]
+  -> Map Int (Range Hand Double, Range ShapedHand Double)
 getReviewRanges nodePath hands =
   let handResults =
         catMaybes $

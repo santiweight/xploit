@@ -6,6 +6,7 @@ build-type: Simple
 library
   hs-source-dirs: src
   build-depends: base
+               , aeson-gadt-th
                , poker-base
                , poker-game
                , poker-histories
@@ -20,6 +21,7 @@ library
                , safe-money-aeson
                , safe-money-serialise
                , servant
+               , some
                , tasty-quickcheck
                , text
                , time

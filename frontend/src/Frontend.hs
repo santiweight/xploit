@@ -61,8 +61,7 @@ import Poker.History.Bovada.Parser (pHand, pHands)
 import Poker.History.Types (unsafeToUsdHand)
 import Prettyprinter
 import RangeCalc
-  ( getCurrentNode,
-  )
+  ( getCurrentNode)
 import RangeDisplay
   ( holdingDisplay,
     rangeDisplay, rangeDisplayWidget
@@ -73,14 +72,17 @@ import Text.Megaparsec (parse)
 import Text.Megaparsec.Error (errorBundlePretty)
 import Poker.Query.ActionIx (IxRange(ExactlyRn))
 import Review.Widget (review)
+import DB.Stats
+import BasicPrelude (void)
 
 frontend :: Frontend (R FrontendRoute)
 frontend =
   Frontend
     { _frontend_head = Head.head,
-      _frontend_body = subRoute_ $ \r -> case r of
+      _frontend_body = subRoute_ $ \case
         FrontendRoute_Main -> body
         FrontendRoute_Review -> review
+        FrontendRoute_Stats -> void $ prerender (pure ()) statsWidget
     }
 
 body ::
@@ -89,6 +91,7 @@ body ::
   RoutedT t r m ()
 body = prerender_ (pure ()) $ do
   routeLink (FrontendRoute_Review :/ ()) $ text "review"
+  routeLink (FrontendRoute_Stats :/ ()) $ text "stats"
   el "div" $ text "include hero? Note: does nothing right now..."
   includeHeroD <- _inputElement_checked <$> checkBox
   rec tableWidget $ currGameState <$> gameTreeD
@@ -104,11 +107,13 @@ body = prerender_ (pure ()) $ do
           (mkRoot initRangeState)
           (leftmost [accNodesFun <$> nodeLockEv, const <$> selectNodeEv])
       selectNodeEv <- switchHold never =<< dyn (treeView filterBetD <$> gameTreeD)
+  normD <- fmap (\case {True -> NormToBB; False -> NoNorm}) . _inputElement_checked <$> checkBox
   nodeQueryResponseD <-
     getCurrentNode
       filterBetD
       (getNodePath <$> gameTreeD)
       includeHeroD
+      normD
   prerender_ (pure ()) $ do
       selectShapedHandD <-
         rangeDisplayWidget

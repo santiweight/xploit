@@ -56,13 +56,13 @@ loadHandClient = do
 
 backendClient :: forall t m. MonadWidget t m => BackendClient t m
 backendClient = do
-  let (_queryApi :<|> _ :<|> _echo :<|> (reviewSubmitApi :<|> reviewRangesApi)) =
+  let (_queryApi :<|> _ :<|> _echo :<|> (reviewSubmitApi :<|> reviewRangesApi) :<|> statsClient)  =
         client
           (Proxy :: Proxy PokerAPI)
           (Proxy :: Proxy m)
           (Proxy :: Proxy ())
           (constDyn (BasePath "/"))
-  BackendClient _queryApi loadHandClient (ReviewClient reviewSubmitApi reviewRangesApi) _echo
+  BackendClient _queryApi loadHandClient (ReviewClient reviewSubmitApi reviewRangesApi) _echo statsClient
 
 data ReviewClient t m = ReviewClient
   { postForReview ::
@@ -88,14 +88,15 @@ data AddHandClient t m = AddHandClient
 
 data BackendClient t m = BackendClient
   { _queryApi ::
-      Dynamic t (Either Text NodeQueryRequest) ->
+      Dynamic t (Either Text SomeNodeQueryRequest) ->
       Event t () ->
       m (Event t (ReqResult () NodeQueryResponse)),
     _addClient :: AddHandClient t m,
     _reviewClient :: ReviewClient t m,
     _echo ::
       Event t () ->
-      m (Event t (ReqResult () ()))
+      m (Event t (ReqResult () ())),
+      _statsClient :: Event t () -> m (Event t (ReqResult () (Map String String)))
   }
 
 makeLenses ''BackendClient

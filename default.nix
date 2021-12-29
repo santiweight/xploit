@@ -64,6 +64,11 @@ let
     rev = "20e2621cc2eca5fe38f8a01c7a159b0b9be524ea";
   };
 
+  pollingCacheSrc = fetchGit {
+    url = "https://github.com/jkaye2012/polling-cache";
+    rev = "6c7529c1ebc7918b3cc6a8ea0cdcbb0c00e36879";
+  };
+
   servantSnapSrc = pkgs.fetchFromGitHub {
     owner  = "haskell-servant";
     repo   = "servant-snap";
@@ -77,7 +82,7 @@ let
   reflexDomSrc = reflexDomRepo +  "/reflex-dom";
   reflexDomCoreSrc = reflexDomRepo +  "/reflex-dom-core";
 in
-project ./. ({ pkgs, ... }: {
+project ./. ({ pkgs, hackGet, ... }: {
   inherit withHoogle;
   overrides = self: super: {
     # data-fix = pkgs.haskell.lib.dontCheck (self.callCabal2nix "data-fix" dataFixSrc {});
@@ -109,6 +114,8 @@ project ./. ({ pkgs, ... }: {
   packages = {
     servant-snap = servantSnapSrc;
     servant-reflex = servantReflexSrc;
+    # polling-cache = pollingCacheSrc;
+    # random = randomSrc;
     # reflex-jexcel = reflexJExcelSrc;
     # reflex-fileapi = reflexFileApiSrc;
     # reflex-codemirror = reflexCodeMirrorSrc;

@@ -256,13 +256,26 @@ foo actEvs nonPostActs e = mdo
           )
   pure ixDyn
 
+checkBox :: MonadWidget t m => m (InputElement EventResult (DomBuilderSpace m) t)
+checkBox =
+  inputElement
+    ( def
+        & inputElementConfig_elementConfig
+          . elementConfig_initialAttributes
+        .~ ("type" =: "checkbox")
+    )
+
 pathRangeWidget gs as = do
   filterBetD <- betBtns (ExactlyRn <$> gs) never
+  normD <- el "div" $ do
+    text "normalise?"
+    fmap (\case True -> NormToBB; False -> NoNorm) . _inputElement_checked <$> checkBox
   responseD <-
     getCurrentNode
       filterBetD
       (constDyn $ fmap (fmap ExactlyRn) <$> as)
       (constDyn True)
+      normD
   selectShapedHandD <-
     rangeDisplayWidget
       (responseD <&> shapedHandRange)

@@ -32,6 +32,7 @@ import Poker.Query.ActionIx
 import Poker.Range (Range (Range))
 import Reflex.Dom
 import Servant.Common.Req
+import Poker.History.Types
 
 getCurrentNode ::
   forall t m.
@@ -41,9 +42,10 @@ getCurrentNode ::
   -- |
   Dynamic t [(Position, BetAction (IxRange (Amount "USD")))] ->
   Dynamic t Bool ->
+  Dynamic t Normalisation ->
   m (Dynamic t NodeQueryResponse)
 -- TODO use liftM3 to pull out one more level of function (unwrap the Dyn on the input args)
-getCurrentNode nodeFilterD nodePathD includeHeroD =
+getCurrentNode nodeFilterD nodePathD includeHeroD normD =
   do
     -- Becuase the filterBetDepends on the game state updating, we use the
     -- filter choice as the source dynamic for requesting the filtered range. It used to
@@ -52,13 +54,14 @@ getCurrentNode nodeFilterD nodePathD includeHeroD =
     -- meaning duplicate events.
     argsD <-
       forDynM
-        nodeFilterD
-        ( \nodeFilter -> do
+        (zipDyn nodeFilterD normD)
+        ( \(nodeFilter, norm) -> do
             nodePath <- sample (current nodePathD)
             includeHero <- sample (current includeHeroD)
-            pure (nodePath, fst nodeFilter, snd nodeFilter, includeHero)
+            -- norm <- sample (current normD)
+            pure (nodePath, fst nodeFilter, snd nodeFilter, includeHero, norm)
         )
-    queryResponseEvSwitch <- dyn (argsD <&> \args -> uncurry4 getFilterResultD args)
+    queryResponseEvSwitch <- dyn (argsD <&> \args -> uncurry5 getFilterResultD args)
     queryResponseEv <- switchHold never queryResponseEvSwitch
     -- Whenever we make a new query request, we must reset the current query response to
     -- the empty query response, since we no longer know what the node's range is
@@ -68,7 +71,7 @@ getCurrentNode nodeFilterD nodePathD includeHeroD =
             [emptyQueryResponse <$ queryResponseEvSwitch, queryResponseEv]
     holdDyn emptyQueryResponse displayedQueryReponseEv
   where
-    uncurry4 f (a, b, c, d) = f a b c d
+    uncurry5 f (a, b, c, d, e) = f a b c d e
 
 emptyQueryResponse :: NodeQueryResponse
 emptyQueryResponse = NodeQueryResponse [] (Range Map.empty) (Range Map.empty)
@@ -88,11 +91,12 @@ getFilterResultD ::
   Position ->
   BetAction (IxRange (Amount "USD")) ->
   Bool ->
+  Normalisation ->
   m (Event t NodeQueryResponse)
-getFilterResultD nodePath expectedPos nodeFilter includeHero = mdo
+getFilterResultD nodePath expectedPos nodeFilter includeHero norm = mdo
   queryRunRes <-
     (backendClient ^. queryApi)
-      (Right <$> constDyn (NodeQueryRequest nodePath includeHero expectedPos nodeFilter))
+      (Right <$> constDyn (SomeNodeQueryRequest USD $ NodeQueryRequest nodePath includeHero expectedPos nodeFilter norm))
       startUpEv
   startUpEv <- getPostBuild
   pure $ mapMaybe getSuccess queryRunRes
