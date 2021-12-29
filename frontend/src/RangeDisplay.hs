@@ -50,6 +50,10 @@ initialRange = Range Map.empty
 rangeCellSize :: Int
 rangeCellSize = 50
 
+rangeDisplayWidget currRange = do
+  selectShapedHandE <- rangeDisplay currRange
+  holdDyn (mkPair Ace) selectShapedHandE
+
 rangeDisplay
   :: (MonadWidget t m)
   => Dynamic t (Range ShapedHand Double)

@@ -3,6 +3,22 @@ body {
   margin: 0;
   padding: 0; }
 
+.heart-color {
+  color: red
+}
+
+.spade-color {
+  color: black
+}
+
+.diamond-color {
+  color: blue
+}
+
+.club-color {
+  color: green
+}
+
 .vue-container {
   width: 100vw;
   height: 30vh; }

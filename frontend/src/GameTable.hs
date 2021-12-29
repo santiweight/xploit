@@ -18,6 +18,7 @@ import           Reflex.Dom
 import Poker.Query.ActionIx
 import Poker.Game.Types
 import RangeDisplay (prettyText)
+import BasicPrelude (tshow)
 
 gameTable
   :: ( PrettyBetAmount b
@@ -31,12 +32,21 @@ gameTable gameState = divClass "table" $ do
   players
  where
   potEl = divClass "pot" $ text $ prettyPot (_potSize gameState)
+  board = _street gameState
   prettyPot (Pot amt) = prettyBetAmount amt
-  boardEl = divClass "card-place" $ P.forM_ [2 .. 6] $ \num ->
-    divClass ("card figures-D values-" <> P.tshow @Integer num) $ do
-      el "h1" $ text (T.pack $ show num)
-      divClass "figures D" $ pure ()
-      el "h1" $ text (T.pack $ show num)
+  getCards :: Board -> [Card]
+  getCards b = case b of
+    RiverBoard ca bo -> ca:getCards bo
+    TurnBoard ca bo -> ca:getCards bo
+    FlopBoard (c1, c2, c3) bo -> c1:c2:c3:getCards bo
+    PreFlopBoard _ -> []
+    InitialTable -> []
+  boardEl = divClass "card-place" $
+    P.forM_ (getCards board) $ \(Card r s) ->
+      divClass ("card figures-" <> T.take 1 (tshow s) <> " values-" <> P.tshow r) $ do
+        el "h1" $ text (T.pack $ show r)
+        divClass "figures D" $ pure ()
+        el "h1" $ text (T.pack $ show r)
   players = divClass "players" $ do
     let activePlayer = gameState ^. toActQueue . to P.head
     P.forM_ (Map.toList $ gameState ^. posToStack) $ \(pos, stack) -> do
