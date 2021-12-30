@@ -46,7 +46,7 @@ library
   exposed-modules:
     Backend
     Server.Base
-    Server.DBQuery
+    Server.DB.Query
     Server.RunQuery
     Server.Instances
     Server.Handler

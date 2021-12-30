@@ -40,8 +40,7 @@ import Poker.History.Types
 import Poker.Query.ActionIx (IxRange (ExactlyRn))
 import "servant-snap" Servant
 import Server.Base
-import Server.DBQuery
-import Server.DBQuery (selectAllHands)
+import Server.DB.Query (selectAllHands)
 import Server.RunQuery
 import Server.RunQuery (getReviewRanges)
 import Snap.Core

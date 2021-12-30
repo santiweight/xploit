@@ -1,4 +1,4 @@
-module Server.DBQuery where
+module Server.DB.Query where
 
 import Codec.Serialise (deserialise)
 import Data.ByteString.Lazy (fromStrict)
