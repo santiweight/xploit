@@ -72,26 +72,34 @@ getNode hands NodeQueryRequest {..} =
     joinHandResults = Map.unionsWith (\(Range r1) (Range r2) -> Range $ Map.unionWith (++) r1 r2)
 
 getCurrentRanges ::
+  forall b.
   IsBet b =>
   BetAction (IxRange b) ->
   Range Hand [BetAction b] ->
   (Range Hand Double, Range ShapedHand Double)
 getCurrentRanges currActFilter nodeRange =
   let currActFilterFunction = doesBetMatch currActFilter
-      holdingRange = applyFilterAsFreq currActFilterFunction nodeRange
-      utgShowRange =
-        applyFilterAsFreq currActFilterFunction
-          . holdingRangeToShapedRange
-          $ nodeRange
+      countActFreq :: forall k. Range k [BetAction b] -> Range k Double
+      countActFreq = applyFilterAsFreq currActFilterFunction
+      holdingRange = countActFreq nodeRange
+      utgShowRange = countActFreq . holdingRangeToShapedRange $ nodeRange
    in (holdingRange, utgShowRange)
 
 applyFilterAsFreq ::
   (BetAction b -> Bool) -> Range k [BetAction b] -> Range k Double
 applyFilterAsFreq ix matchedActsRange =
-    ( \acts ->
-        100 * (fromIntegral (length (filter ix acts)) / fromIntegral (length acts))
-    )
-      <$> matchedActsRange
+  ( \acts ->
+      100 * (fromIntegral (length (filter ix acts)) / fromIntegral (length acts))
+  )
+    <$> matchedActsRange
+
+freqToDouble :: Freq -> Double
+freqToDouble (Freq num denom) = 100 * (fromIntegral num / fromIntegral denom)
+
+applyFilterAsFreq' ::
+  (BetAction b -> Bool) -> [BetAction b] -> Double
+applyFilterAsFreq' ix acts =
+  100 * (fromIntegral (length (filter ix acts)) / fromIntegral (length acts))
 
 tryGetHandNode ::
   (IsBetSize b, IsBet b, Pretty b, Show b) =>
@@ -101,7 +109,7 @@ tryGetHandNode ::
   Bool ->
   Maybe (History b, Map String (Range Hand [BetAction b]))
 tryGetHandNode expectedPos branch hand includeHero =
-  fmap ((hand,).fmap Range) . listToMaybe . rights $
+  fmap ((hand,) . fmap Range) . listToMaybe . rights $
     getPathRange
       hand
       expectedPos
