@@ -9,7 +9,7 @@ import Common.Server.Api
     NodeQueryRequest (..),
     NodeQueryResponse (..),
   )
-import Control.Lens ((<&>), over)
+import Control.Lens (over, (<&>))
 import Control.Lens.TH
 import Control.Monad
 import Data.Bifunctor (Bifunctor (second))
@@ -87,11 +87,11 @@ getCurrentRanges currActFilter nodeRange =
 
 applyFilterAsFreq ::
   (BetAction b -> Bool) -> Range k [BetAction b] -> Range k Double
-applyFilterAsFreq ix (Range matchedActsRange) = Range $
-  fmap
+applyFilterAsFreq ix matchedActsRange =
     ( \acts ->
         100 * (fromIntegral (length (filter ix acts)) / fromIntegral (length acts))
-    ) $ matchedActsRange
+    )
+      <$> matchedActsRange
 
 tryGetHandNode ::
   (IsBetSize b, IsBet b, Pretty b, Show b) =>
