@@ -9,7 +9,8 @@ import Common.Server.Api
     NodeQueryRequest (..),
     NodeQueryResponse (..),
   )
-import Control.Lens ((<&>))
+import Control.Lens ((<&>), over)
+import Control.Lens.TH
 import Control.Monad
 import Data.Bifunctor (Bifunctor (second))
 import Data.Either (rights)
@@ -29,6 +30,8 @@ import Poker.Query.ActionIx
 import Poker.Query.Eval.Base
 import Prettyprinter
 import Prelude hiding (pred)
+
+makeLenses ''Range
 
 matchedHandsNum :: Int
 matchedHandsNum = 10
@@ -75,22 +78,22 @@ getCurrentRanges ::
   (Range Hand Double, Range ShapedHand Double)
 getCurrentRanges currActFilter nodeRange =
   let currActFilterFunction = doesBetMatch currActFilter
-      holdingRange = applyFilterAsFreq currActFilterFunction (_range nodeRange)
+      holdingRange = applyFilterAsFreq currActFilterFunction nodeRange
       utgShowRange =
         applyFilterAsFreq currActFilterFunction
           . holdingRangeToShapedRange
-          $ (_range nodeRange)
+          $ nodeRange
    in (holdingRange, utgShowRange)
   where
-    holdingRangeToShapedRange = Map.mapKeysWith (++) handToShaped
+    holdingRangeToShapedRange = over range $ Map.mapKeysWith (++) handToShaped
 
 applyFilterAsFreq ::
-  (BetAction b -> Bool) -> Map k [BetAction b] -> Range k Double
-applyFilterAsFreq ix = Range .
+  (BetAction b -> Bool) -> Range k [BetAction b] -> Range k Double
+applyFilterAsFreq ix (Range matchedActsRange) = Range $
   fmap
     ( \acts ->
         100 * (fromIntegral (length (filter ix acts)) / fromIntegral (length acts))
-    )
+    ) $ matchedActsRange
 
 tryGetHandNode ::
   (IsBetSize b, IsBet b, Pretty b, Show b) =>
