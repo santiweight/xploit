@@ -11,28 +11,19 @@
 
 module RangeCalc where
 
-import qualified BasicPrelude as P
-import BetWidgets
-import Common.Route
 import Common.Server.Api
-import Control.Arrow ((>>>))
 import Control.Lens
   ( (<&>),
     (^.),
   )
-import Control.Monad
-import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Debug.Trace (traceShow)
 import Handlers
-import Obelisk.Frontend
-import Obelisk.Route
 import Poker
+import Poker.History.Types
 import Poker.Query.ActionIx
 import Poker.Range (Range (Range))
 import Reflex.Dom
 import Servant.Common.Req
-import Poker.History.Types
 
 getCurrentNode ::
   forall t m.

@@ -1,21 +1,23 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module GameLogic where
 
-import           Control.Monad.State
-import qualified Data.Map.Strict               as Map
-import           Poker
-import           Poker.Game.Types
-import           Poker.Query.ActionIx
-import Poker.Game.Emulate (emulateAction)
-import Prettyprinter
+import Control.Monad.State
+import qualified Data.Map.Strict as Map
 import Debug.Trace
+import Poker
+import Poker.Game.Emulate (emulateAction)
+import Poker.Game.Types
+import Poker.Query.ActionIx
+import Prettyprinter
+
 -- import           Poker.Game.HasAvailableActions ( HasAvailableActions(..) )
 
 -- initState :: GameState (Amount "USD")
@@ -58,36 +60,36 @@ import Debug.Trace
 -- --   , _activeBet         :: Maybe (ActionFaced g)
 -- --   }
 
-
 initRangeState :: GameState (IxRange (Amount "USD"))
 initRangeState =
-  let blindActions = MkPostAction <$>
-        [ PostAction SB $ Post $ ExactlyRn (unsafeMkAmount 12)
-        , PostAction BB $ Post $ ExactlyRn (unsafeMkAmount 25)
-        ]
-  in  case
-          execStateT (sequence_ $ emulateAction <$> blindActions) defRangeState
-        of
-          Left  e -> error $ show e
-          Right r -> r
+  let blindActions =
+        MkPostAction
+          <$> [ PostAction SB $ Post $ ExactlyRn (unsafeMkAmount 12),
+                PostAction BB $ Post $ ExactlyRn (unsafeMkAmount 25)
+              ]
+   in case execStateT (sequence_ $ emulateAction <$> blindActions) defRangeState of
+        Left e -> error $ show e
+        Right r -> r
 
 defRangeState :: GameState (IxRange (Amount "USD"))
-defRangeState = GameState
-  { _stateStakes       = Stake AnyRn
-  , _posToStack       = Map.fromList
-                           [ (UTG, Stack AnyRn)
-                           , (UTG1, Stack AnyRn)
-                           , (UTG2, Stack AnyRn)
-                           , (BU , Stack AnyRn)
-                           , (SB , Stack AnyRn)
-                           , (BB , Stack AnyRn)
-                           ]
-  , _potSize           = Pot AnyRn
-  , _street            = PreFlopBoard InitialTable
-  , _toActQueue        = [UTG, UTG1, UTG2, BU, SB, BB]
-  , _activeBet         = Nothing
-  , _streetInvestments = Map.empty
-  }
+defRangeState =
+  GameState
+    { _stateStakes = Stake AnyRn,
+      _posToStack =
+        Map.fromList
+          [ (UTG, Stack AnyRn),
+            (UTG1, Stack AnyRn),
+            (UTG2, Stack AnyRn),
+            (BU, Stack AnyRn),
+            (SB, Stack AnyRn),
+            (BB, Stack AnyRn)
+          ],
+      _potSize = Pot AnyRn,
+      _street = PreFlopBoard InitialTable,
+      _toActQueue = [UTG, UTG1, UTG2, BU, SB, BB],
+      _activeBet = Nothing,
+      _streetInvestments = Map.empty
+    }
 
 -- TODO move into base packages to prevent orphan instance
 -- instance HasAvailableActions (IxRange BetSize) where
@@ -152,15 +154,16 @@ defRangeState = GameState
 --     -- getMinBet (AboveRn lo    ) = Just lo
 --     -- getMinBet (BelowRn _     ) = Nothing
 
-doPosAct
-  ::  (Pretty b, IsBet b) => (Position, BetAction b)
-  -> GameState b
-  -> GameState b
+doPosAct ::
+  (Pretty b, IsBet b) =>
+  (Position, BetAction b) ->
+  GameState b ->
+  GameState b
 doPosAct (pos, bet) gameSt =
   let emulateActionM =
         emulateAction (MkPlayerAction $ PlayerAction pos bet)
-  in  case execStateT emulateActionM gameSt of
-        Left  e -> traceShow e $ traceShow "BIG OLE ERROR BECAUSE INVALID ACT" $ gameSt -- TODO output error
+   in case execStateT emulateActionM gameSt of
+        Left e -> traceShow e $ traceShow "BIG OLE ERROR BECAUSE INVALID ACT" $ gameSt -- TODO output error
         Right r -> r
 
 instance (Monoid b, Semigroup b) => Semigroup (IxRange b) where
@@ -171,5 +174,6 @@ instance Monoid b => Monoid (IxRange b) where
 
 instance (Ord b, IsBet b) => IsBet (IxRange b) where
   smallestAmount = ExactlyRn smallestAmount
+
   -- TODO fixme
   minus = subRange

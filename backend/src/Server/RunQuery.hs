@@ -7,10 +7,10 @@
 module Server.RunQuery where
 
 import Common.Server.Api
-  ( NodeQueryRequest (..),
-    NodeQueryResponse (..), HistoryId (HistoryId)
+  ( HistoryId (HistoryId),
+    NodeQueryRequest (..),
+    NodeQueryResponse (..),
   )
-import Control.Applicative (empty)
 import Control.Lens ((<&>))
 import Control.Monad
 import Data.Bifunctor (Bifunctor (second))
@@ -23,27 +23,19 @@ import Data.Maybe
     listToMaybe,
   )
 import Data.Monoid (Sum (Sum))
-import Debug.Trace
+import GHC.TypeLits
+import Money
 import Poker
-import Poker.Game.Types
-  ( EvalState (..),
-  )
 import Poker.History.Bovada.Model
 import Poker.Query.ActionIx
-import Poker.Query.Base
 import Poker.Query.Eval.Base
-import Poker.Query.Eval.Internal
-import Polysemy (Sem)
-import Polysemy.State (State)
 import Prettyprinter
 import Prelude hiding (pred)
-import Money
-import GHC.TypeLits
 
 matchedHandsNum :: Int
 matchedHandsNum = 10
 
-getNode :: (KnownSymbol b, GoodScale (CurrencyScale b)) => [History (Amount b)] -> NodeQueryRequest b-> NodeQueryResponse
+getNode :: (KnownSymbol b, GoodScale (CurrencyScale b)) => [History (Amount b)] -> NodeQueryRequest b -> NodeQueryResponse
 getNode hands NodeQueryRequest {..} =
   let expectedPos = nodeExpectedPos
       handResults =
@@ -118,9 +110,11 @@ tryGetHandNode expectedPos branch hand includeHero =
       -- includeHero
       branch
 
-getReviewRanges :: (Pretty b, IsBet b) => [(Position, BetAction (IxRange b))]
-  -> [History b]
-  -> Map Int (Range Hand Double, Range ShapedHand Double)
+getReviewRanges ::
+  (Pretty b, IsBet b) =>
+  [(Position, BetAction (IxRange b))] ->
+  [History b] ->
+  Map Int (Range Hand Double, Range ShapedHand Double)
 getReviewRanges nodePath hands =
   let handResults =
         catMaybes $

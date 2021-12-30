@@ -94,26 +94,34 @@ addDirServer (Just dirPath) = do
     findTxtFiles = FP.find (FP.fileName FP./~? ".?*") FP.always dirPath -- (FP.fileName FP.~~? "*.txt") dir
 
 normaliseReq :: (Amount b -> Amount c) -> NodeQueryRequest b -> NodeQueryRequest c
-normaliseReq f
-  = \case
-      (NodeQueryRequest x0 stake b po ba nor)
-        -> NodeQueryRequest
-             {nodePath = (fmap . fmap . fmap . fmap) f $ x0, nodeStake = fmap f stake, includeHero = b, nodeExpectedPos = po,
-              nodeFilter = (fmap . fmap) f ba, nodeNormalisation = nor}
+normaliseReq f =
+  \case
+    (NodeQueryRequest x0 stake b po ba nor) ->
+      NodeQueryRequest
+        { nodePath = (fmap . fmap . fmap . fmap) f $ x0,
+          nodeStake = fmap f stake,
+          includeHero = b,
+          nodeExpectedPos = po,
+          nodeFilter = (fmap . fmap) f ba,
+          nodeNormalisation = nor
+        }
 
 queryServer :: MonadSnap m => Server QueryAPI l m
 queryServer = queryHandler
   where
     queryHandler :: MonadSnap m => SomeNodeQueryRequest -> m NodeQueryResponse
-    queryHandler (SomeNodeQueryRequest USD req) = let stake = nodeStake req in case nodeNormalisation req of
-      NormToBB ->
-        let f = (unBigBlind . normalizeAmount stake)
-        in go
-          (normaliseReq f req)
-          (\hist@(_handStakes -> stake) -> Just ( f <$> hist))
-      NoNorm -> go
-          req
-          Just
+    queryHandler (SomeNodeQueryRequest USD req) =
+      let stake = nodeStake req
+       in case nodeNormalisation req of
+            NormToBB ->
+              let f = (unBigBlind . normalizeAmount stake)
+               in go
+                    (normaliseReq f req)
+                    (\hist@(_handStakes -> stake) -> Just (f <$> hist))
+            NoNorm ->
+              go
+                req
+                Just
 
     go ::
       forall m b.

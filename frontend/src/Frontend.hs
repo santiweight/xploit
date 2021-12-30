@@ -16,34 +16,21 @@
 
 module Frontend where
 
+import BasicPrelude (void)
 import qualified BasicPrelude as P
 import BetWidgets
 import Common.Route
 import Common.Server.Api
-import Common.Util (tshow)
-import Control.Arrow ((>>>))
 import Control.Lens
   ( snoc,
-    to,
-    (^.),
   )
-import Control.Monad (forM, join)
+import DB.Stats
 import Data.Functor ((<&>))
-import Data.List (unzip4)
-import Data.Map (Map, mapWithKey)
-import qualified Data.Map as Map
-import qualified Data.Map.Strict as Map
-import Data.Text (Text)
 import qualified Data.Text as T
 import GHC.Stack
 import GameLogic
 import GameTable
-import Handlers
 import qualified Head
-import JSDOM (nextAnimationFrame)
-import JSDOM.Types (Element (unElement), liftJSM, toElement)
-import Language.Javascript.JSaddle (JSM, JSVal, ToJSVal (toJSVal), eval, js0, js1, js3, jsf, jsgf, val)
-import Money (Approximation (Round), defaultDecimalConf, denseFromDiscrete, denseToDecimal)
 import Obelisk.Frontend
   ( Frontend (..),
     ObeliskWidget,
@@ -51,29 +38,17 @@ import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Route.Frontend (RoutedT, routeLink, subRoute_)
 import Poker
-import Poker.Game.Bovada (preflopState)
-import Poker.Game.Emulate
-import Poker.Game.Normalise (Normalise (normalise))
 import Poker.Game.Types
-import Poker.Game.Utils (runGame)
-import Poker.History.Bovada.Model
-import Poker.History.Bovada.Parser (pHand, pHands)
-import Poker.History.Types (unsafeToUsdHand)
 import Prettyprinter
 import RangeCalc
-  ( getCurrentNode)
+  ( getCurrentNode,
+  )
 import RangeDisplay
   ( holdingDisplay,
-    rangeDisplay, rangeDisplayWidget
+    rangeDisplayWidget,
   )
 import Reflex.Dom.Core
-import Servant.Common.Req (ReqResult (RequestFailure, ResponseFailure, ResponseSuccess))
-import Text.Megaparsec (parse)
-import Text.Megaparsec.Error (errorBundlePretty)
-import Poker.Query.ActionIx (IxRange(ExactlyRn))
 import Review.Widget (review)
-import DB.Stats
-import BasicPrelude (void)
 
 frontend :: Frontend (R FrontendRoute)
 frontend =
@@ -107,10 +82,13 @@ body = prerender_ (pure ()) $ do
           (mkRoot initRangeState)
           (leftmost [accNodesFun <$> nodeLockEv, const <$> selectNodeEv])
       selectNodeEv <- switchHold never =<< dyn (treeView filterBetD <$> gameTreeD)
-  normD <- fmap (\case {True -> NormToBB; False -> NoNorm}) . _inputElement_checked <$> checkBox
-  filterBetD' <- forDynM filterBetD $ (\(pos, ba) -> do
+  normD <- fmap (\case True -> NormToBB; False -> NoNorm) . _inputElement_checked <$> checkBox
+  filterBetD' <-
+    forDynM filterBetD $
+      ( \(pos, ba) -> do
           gs <- sample (current (currGameState <$> gameTreeD))
-          pure (Stake (unsafeMkAmount 25), pos, ba))
+          pure (Stake (unsafeMkAmount 25), pos, ba)
+      )
   nodeQueryResponseD <-
     getCurrentNode
       filterBetD'
@@ -119,12 +97,12 @@ body = prerender_ (pure ()) $ do
       includeHeroD
       normD
   prerender_ (pure ()) $ do
-      selectShapedHandD <-
-        rangeDisplayWidget
-          (nodeQueryResponseD <&> shapedHandRange)
-      _ <- holdingDisplay selectShapedHandD (nodeQueryResponseD <&> holdingRange)
-      matchedHandsDisplay nodeQueryResponseD
-      pure ()
+    selectShapedHandD <-
+      rangeDisplayWidget
+        (nodeQueryResponseD <&> shapedHandRange)
+    _ <- holdingDisplay selectShapedHandD (nodeQueryResponseD <&> holdingRange)
+    matchedHandsDisplay nodeQueryResponseD
+    pure ()
   pure ()
   where
     getNodePath = fmap (\(pos, act, _) -> (pos, act)) . restNodes
@@ -150,7 +128,6 @@ body = prerender_ (pure ()) $ do
       dyn_ $
         gameStateDyn <&> \gameState ->
           divClass "vue-container" $ gameTable gameState
-
 
     lockNodeBtn filterBetD = el "div" $ do
       lockNodeEv <- button "Lock Node"
