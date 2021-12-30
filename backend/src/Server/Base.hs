@@ -16,18 +16,15 @@ module Server.Base where
 
 import Codec.Serialise (serialise)
 import Common.DB.Instances ()
-import Common.Server.Api (ReviewHistory (ReviewHistory))
+import Common.Server.Api (ReviewHistory)
 import Control.Monad.Logger
   ( LoggingT,
     runStdoutLoggingT,
   )
 import Control.Monad.Reader (runReaderT)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import Data.Time
   ( TimeZone,
     UTCTime,
