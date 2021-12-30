@@ -12,31 +12,21 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Server.Base where
+module Server.DB.Schema where
 
-import Codec.Serialise (serialise)
 import Common.DB.Instances ()
-import Common.Server.Api (ReviewHistory)
 import Control.Monad.Logger
   ( LoggingT,
     runStdoutLoggingT,
   )
 import Control.Monad.Reader (runReaderT)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as BL
 import Data.Text (Text)
 import Data.Time
-  ( TimeZone,
-    UTCTime,
+  ( UTCTime,
   )
-import Data.Time.LocalTime
-  ( getCurrentTimeZone,
-    localTimeToUTC,
-  )
-import Database.Persist
 import Database.Persist.Postgresql
 import Database.Persist.TH as PTH
-import Poker
 import Poker.History.Bovada.Model
 import Server.Instances ()
 
@@ -68,27 +58,3 @@ runAction connectionString action = do
 migrateDB :: IO ()
 migrateDB = runAction connString (runMigration migrateAll)
 
-insertHand :: History (Amount "USD") -> IO ()
-insertHand hand = do
-  -- migrateDB
-  -- print "inserting hand"
-  -- print hand
-  tz <- getCurrentTimeZone
-  (() <$) . runAction connString . insertBy . toHandH tz $ hand
-  where
-    toHandH :: TimeZone -> History (Amount "USD") -> HandH
-    toHandH tz h@History {..} =
-      HandH
-        { handHHandId = gameId header,
-          handHHandHistoryText = _handText,
-          handHTableTy = gameTy header,
-          handHTime = localTimeToUTC tz $ time header,
-          handHSerial = BL.toStrict $ serialise h
-        }
-
-insertReview :: ReviewHistory -> IO ReviewHistoryPId
-insertReview hist = do
-  runAction connString . insert . toReviewHistoryP $ hist
-  where
-    toReviewHistoryP :: ReviewHistory -> ReviewHistoryP
-    toReviewHistoryP = ReviewHistoryP . BL.toStrict . serialise

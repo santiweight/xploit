@@ -7,8 +7,6 @@
 module Server.Instances where
 
 import Codec.Serialise
-import Codec.Serialise.Decoding
-import Codec.Serialise.Encoding
 import Common.Server.Api
 import Data.Time.Calendar (Day (..))
 import Data.Time.LocalTime (LocalTime (..), TimeOfDay (..))
@@ -16,11 +14,10 @@ import Database.Persist.TH (derivePersistField)
 import GHC.Generics
 import GHC.TypeLits
 import Money
-import Money.Serialise
+import Money.Serialise ()
 import Poker
 import qualified Poker.Game.Types
 import Poker.History.Bovada.Model
-import Poker.History.Types
 
 derivePersistField "GameType"
 

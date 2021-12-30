@@ -8,22 +8,18 @@
 module Server.Handler where
 
 import Common.Server.Api
-import Common.Server.Api (NodeQueryRequest (NodeQueryRequest))
 import Control.Lens as L
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
-import Control.Monad.Reader (ReaderT)
 import Control.Monad.Trans.Resource
 import Data.Aeson
 import Data.Bifunctor (Bifunctor (second))
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.Text (Text)
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Void
 import Database.Esqueleto hiding ((<&>))
@@ -39,10 +35,9 @@ import Poker.History.Bovada.Parser
 import Poker.History.Types
 import Poker.Query.ActionIx (IxRange (ExactlyRn))
 import "servant-snap" Servant
-import Server.Base
-import Server.DB.Query (selectAllHands)
-import Server.RunQuery
-import Server.RunQuery (getReviewRanges)
+import Server.DB.Schema
+import Server.DB.Query (selectAllHands, insertHand, insertReview)
+import Server.RunQuery (getReviewRanges, getNode)
 import Snap.Core
 import System.Directory
 import System.Directory.Recursive

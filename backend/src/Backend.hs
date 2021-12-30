@@ -18,7 +18,7 @@ import Data.Proxy (Proxy (..))
 import Obelisk.Backend (Backend (..))
 import Obelisk.Route
 import "servant-snap" Servant.Server (serveSnap)
-import Server.Base
+import Server.DB.Schema
 import Server.Handler (pokerServer)
 import Prelude hiding (read)
 
@@ -30,7 +30,7 @@ backend =
   Backend
     { _backend_run = \serve -> serve $ \case
         (BackendRoute_Api :/ _) -> do
-          liftIO $ migrateDB
+          liftIO migrateDB
           serveSnap (Proxy :: Proxy PokerAPI) pokerServer
         (BackendRoute_Missing :/ ()) -> return (),
       _backend_routeEncoder = fullRouteEncoder

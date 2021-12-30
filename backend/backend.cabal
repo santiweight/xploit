@@ -45,7 +45,7 @@ library
                , time
   exposed-modules:
     Backend
-    Server.Base
+    Server.DB.Schema
     Server.DB.Query
     Server.RunQuery
     Server.Instances
