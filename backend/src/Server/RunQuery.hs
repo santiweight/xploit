@@ -63,13 +63,13 @@ getNode hands NodeQueryRequest {..} =
       -- FIXME This call to succ is non-total and is a hacky way to recover the current node's position. A better way
       -- to do this is to have all players' positions so we can see who will act next. Alternatively, have the ranges accumulate
       -- by the action's index (0..) in the list of all actions.
-      getResultRange r = fromMaybe Map.empty $ r Map.!? show (length nodePath)
+      getResultRange r = fromMaybe mempty $ r Map.!? show (length nodePath)
       resultRange = getResultRange accRange
-      (holdingRange, shapedHandRange) = getCurrentRanges nodeFilter (Range resultRange)
+      (holdingRange, shapedHandRange) = getCurrentRanges nodeFilter resultRange
    in NodeQueryResponse {..}
   where
     historyId = HistoryId . header
-    joinHandResults = Map.unionsWith (Map.unionWith (++))
+    joinHandResults = Map.unionsWith (\(Range r1) (Range r2) -> Range $ Map.unionWith (++) r1 r2)
 
 getCurrentRanges ::
   IsBet b =>
@@ -99,9 +99,9 @@ tryGetHandNode ::
   [(Position, BetAction (IxRange b))] ->
   History b ->
   Bool ->
-  Maybe (History b, Map String (Map Hand [BetAction b]))
+  Maybe (History b, Map String (Range Hand [BetAction b]))
 tryGetHandNode expectedPos branch hand includeHero =
-  fmap (hand,) . listToMaybe . rights $
+  fmap ((hand,).fmap Range) . listToMaybe . rights $
     getPathRange
       hand
       expectedPos
