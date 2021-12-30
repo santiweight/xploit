@@ -62,7 +62,7 @@ getNode hands NodeQueryRequest {..} =
       -- by the action's index (0..) in the list of all actions.
       getResultRange r = fromMaybe Map.empty $ r Map.!? show (length nodePath)
       resultRange = getResultRange accRange
-      (holdingRange, shapedHandRange) = getCurrentRanges nodeFilter resultRange
+      (holdingRange, shapedHandRange) = getCurrentRanges nodeFilter (Range resultRange)
    in NodeQueryResponse {..}
   where
     historyId = HistoryId . header
@@ -71,22 +71,22 @@ getNode hands NodeQueryRequest {..} =
 getCurrentRanges ::
   IsBet b =>
   BetAction (IxRange b) ->
-  Map Hand [BetAction b] ->
+  Range Hand [BetAction b] ->
   (Range Hand Double, Range ShapedHand Double)
 getCurrentRanges currActFilter nodeRange =
   let currActFilterFunction = doesBetMatch currActFilter
-      holdingRange = applyFilterAsFreq currActFilterFunction nodeRange
+      holdingRange = applyFilterAsFreq currActFilterFunction (_range nodeRange)
       utgShowRange =
         applyFilterAsFreq currActFilterFunction
           . holdingRangeToShapedRange
-          $ nodeRange
-   in (Range holdingRange, Range utgShowRange)
+          $ (_range nodeRange)
+   in (holdingRange, utgShowRange)
   where
     holdingRangeToShapedRange = Map.mapKeysWith (++) handToShaped
 
 applyFilterAsFreq ::
-  (BetAction b -> Bool) -> Map k [BetAction b] -> Map k Double
-applyFilterAsFreq ix =
+  (BetAction b -> Bool) -> Map k [BetAction b] -> Range k Double
+applyFilterAsFreq ix = Range .
   fmap
     ( \acts ->
         100 * (fromIntegral (length (filter ix acts)) / fromIntegral (length acts))
@@ -126,7 +126,7 @@ getReviewRanges nodePath hands =
       -- FIXME This call to succ is non-total and is a hacky way to recover the current node's position. A better way
       -- to do this is to have all players' positions so we can see who will act next. Alternatively, have the ranges accumulate
       -- by the action's index (0..) in the list of all actions.
-      ranges = Map.mapWithKey (getCurrentRanges . (Map.!) ixBetsByActNum) accRange
+      ranges = Map.mapWithKey (getCurrentRanges . (Map.!) ixBetsByActNum) (fmap Range accRange)
    in ranges
   where
     joinHandResults = Map.unionsWith (Map.unionWith (++))
