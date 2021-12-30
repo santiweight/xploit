@@ -84,8 +84,6 @@ getCurrentRanges currActFilter nodeRange =
           . holdingRangeToShapedRange
           $ nodeRange
    in (holdingRange, utgShowRange)
-  where
-    holdingRangeToShapedRange = over range $ Map.mapKeysWith (++) handToShaped
 
 applyFilterAsFreq ::
   (BetAction b -> Bool) -> Range k [BetAction b] -> Range k Double
