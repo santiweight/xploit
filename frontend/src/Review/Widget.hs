@@ -272,7 +272,7 @@ pathRangeWidget gs as = do
     fmap (\case True -> NormToBB; False -> NoNorm) . _inputElement_checked <$> checkBox
   responseD <-
     getCurrentNode
-      filterBetD
+      ((\(pos, ba) -> (_stateStakes gs, pos, ba)) <$> filterBetD)
       (constDyn $ fmap (fmap ExactlyRn) <$> as)
       (constDyn True)
       normD

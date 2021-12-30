@@ -108,9 +108,13 @@ body = prerender_ (pure ()) $ do
           (leftmost [accNodesFun <$> nodeLockEv, const <$> selectNodeEv])
       selectNodeEv <- switchHold never =<< dyn (treeView filterBetD <$> gameTreeD)
   normD <- fmap (\case {True -> NormToBB; False -> NoNorm}) . _inputElement_checked <$> checkBox
+  filterBetD' <- forDynM filterBetD $ (\(pos, ba) -> do
+          gs <- sample (current (currGameState <$> gameTreeD))
+          pure (Stake (unsafeMkAmount 25), pos, ba))
   nodeQueryResponseD <-
     getCurrentNode
-      filterBetD
+      filterBetD'
+      -- ((\(pos, ba) -> (_stateStakes gs, pos, ba)) <$> filterBetD)
       (getNodePath <$> gameTreeD)
       includeHeroD
       normD

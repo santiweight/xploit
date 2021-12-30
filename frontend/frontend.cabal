@@ -31,6 +31,7 @@ library
                , safe-money
                , text
   exposed-modules:
+    DB.Stats
     BetWidgets
     Frontend
     GameLogic

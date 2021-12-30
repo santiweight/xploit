@@ -8,7 +8,7 @@ module Server.RunQuery where
 
 import Common.Server.Api
   ( NodeQueryRequest (..),
-    NodeQueryResponse (..),
+    NodeQueryResponse (..), HistoryId (HistoryId)
   )
 import Control.Applicative (empty)
 import Control.Lens ((<&>))
@@ -37,11 +37,13 @@ import Polysemy (Sem)
 import Polysemy.State (State)
 import Prettyprinter
 import Prelude hiding (pred)
+import Money
+import GHC.TypeLits
 
 matchedHandsNum :: Int
 matchedHandsNum = 10
 
-getNode :: [History (Amount "USD")] -> NodeQueryRequest "USD" -> NodeQueryResponse
+getNode :: (KnownSymbol b, GoodScale (CurrencyScale b)) => [History (Amount b)] -> NodeQueryRequest b-> NodeQueryResponse
 getNode hands NodeQueryRequest {..} =
   let expectedPos = nodeExpectedPos
       handResults =
@@ -52,17 +54,17 @@ getNode hands NodeQueryRequest {..} =
             includeHero
             <$> hands
       accRange = joinHandResults . fmap snd $ handResults
-      getHistoryIfFilterMatched (hand, handResultRange) =
+      getHistoryIdIfFilterMatched (hist, handResultRange) =
         case foldMap
           (Sum . length . filter (doesBetMatch nodeFilter))
           handResultRange of
           0 -> Nothing
-          _ -> Just hand
+          _ -> Just $ historyId hist
       handsMatchedFilter =
         take matchedHandsNum
           . catMaybes
           $ handResults
-            <&> getHistoryIfFilterMatched
+            <&> getHistoryIdIfFilterMatched
               . second getResultRange
       -- TODO fix ""
       -- FIXME This call to succ is non-total and is a hacky way to recover the current node's position. A better way
@@ -73,6 +75,7 @@ getNode hands NodeQueryRequest {..} =
       (holdingRange, shapedHandRange) = getCurrentRanges nodeFilter resultRange
    in NodeQueryResponse {..}
   where
+    historyId = HistoryId . header
     joinHandResults = Map.unionsWith (Map.unionWith (++))
 
 getCurrentRanges ::

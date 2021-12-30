@@ -160,7 +160,7 @@ doPosAct (pos, bet) gameSt =
   let emulateActionM =
         emulateAction (MkPlayerAction $ PlayerAction pos bet)
   in  case execStateT emulateActionM gameSt of
-        Left  e -> traceShow "BIG OLE ERROR BECAUSE INVALID ACT" $ gameSt -- TODO output error
+        Left  e -> traceShow e $ traceShow "BIG OLE ERROR BECAUSE INVALID ACT" $ gameSt -- TODO output error
         Right r -> r
 
 instance (Monoid b, Semigroup b) => Semigroup (IxRange b) where

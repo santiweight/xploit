@@ -38,7 +38,7 @@ getCurrentNode ::
   forall t m.
   (MonadWidget t m) =>
   -- |
-  Dynamic t (Position, BetAction (IxRange (Amount "USD"))) ->
+  Dynamic t (Stake (Amount "USD"), Position, BetAction (IxRange (Amount "USD"))) ->
   -- |
   Dynamic t [(Position, BetAction (IxRange (Amount "USD")))] ->
   Dynamic t Bool ->
@@ -55,13 +55,13 @@ getCurrentNode nodeFilterD nodePathD includeHeroD normD =
     argsD <-
       forDynM
         (zipDyn nodeFilterD normD)
-        ( \(nodeFilter, norm) -> do
+        ( \((stake, expectedPos, nodeFilterAct), norm) -> do
             nodePath <- sample (current nodePathD)
             includeHero <- sample (current includeHeroD)
             -- norm <- sample (current normD)
-            pure (nodePath, fst nodeFilter, snd nodeFilter, includeHero, norm)
+            pure (nodePath, stake, expectedPos, nodeFilterAct, includeHero, norm)
         )
-    queryResponseEvSwitch <- dyn (argsD <&> \args -> uncurry5 getFilterResultD args)
+    queryResponseEvSwitch <- dyn (argsD <&> \args -> uncurry6 getFilterResultD args)
     queryResponseEv <- switchHold never queryResponseEvSwitch
     -- Whenever we make a new query request, we must reset the current query response to
     -- the empty query response, since we no longer know what the node's range is
@@ -71,7 +71,7 @@ getCurrentNode nodeFilterD nodePathD includeHeroD normD =
             [emptyQueryResponse <$ queryResponseEvSwitch, queryResponseEv]
     holdDyn emptyQueryResponse displayedQueryReponseEv
   where
-    uncurry5 f (a, b, c, d, e) = f a b c d e
+    uncurry6 f (a, b, c, d, e, g) = f a b c d e g
 
 emptyQueryResponse :: NodeQueryResponse
 emptyQueryResponse = NodeQueryResponse [] (Range Map.empty) (Range Map.empty)
@@ -88,15 +88,16 @@ handsToRetrieve = 10
 getFilterResultD ::
   (MonadWidget t m) =>
   [(Position, BetAction (IxRange (Amount "USD")))] ->
+  Stake (Amount "USD") ->
   Position ->
   BetAction (IxRange (Amount "USD")) ->
   Bool ->
   Normalisation ->
   m (Event t NodeQueryResponse)
-getFilterResultD nodePath expectedPos nodeFilter includeHero norm = mdo
+getFilterResultD nodePath stake expectedPos nodeFilter includeHero norm = mdo
   queryRunRes <-
     (backendClient ^. queryApi)
-      (Right <$> constDyn (SomeNodeQueryRequest USD $ NodeQueryRequest nodePath includeHero expectedPos nodeFilter norm))
+      (Right <$> constDyn (SomeNodeQueryRequest USD $ NodeQueryRequest nodePath stake includeHero expectedPos nodeFilter norm))
       startUpEv
   startUpEv <- getPostBuild
   pure $ mapMaybe getSuccess queryRunRes

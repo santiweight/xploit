@@ -8,13 +8,17 @@
 module Server.Handler where
 
 import Common.Server.Api
+import Common.Server.Api (NodeQueryRequest (NodeQueryRequest))
 import Control.Lens as L
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.Trans.Resource
+import Data.Aeson
 import Data.Bifunctor (Bifunctor (second))
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
@@ -26,6 +30,8 @@ import Database.Esqueleto hiding ((<&>))
 import Database.Persist.Postgresql
 import Database.Redis
 import qualified Database.Redis as Redis
+import GHC.TypeLits
+import Money
 import Poker
 import qualified Poker.Game.Types
 import Poker.History.Bovada.Model
@@ -35,6 +41,7 @@ import Poker.Query.ActionIx (IxRange (ExactlyRn))
 import "servant-snap" Servant
 import Server.Base
 import Server.DBQuery
+import Server.DBQuery (selectAllHands)
 import Server.RunQuery
 import Server.RunQuery (getReviewRanges)
 import Snap.Core
@@ -42,12 +49,6 @@ import System.Directory
 import System.Directory.Recursive
 import qualified System.FilePath.Find as FP
 import Text.Megaparsec
-import Data.Aeson
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString as BS
-import Server.DBQuery (selectAllHands)
-import Poker.BigBlind (normalizeAmount)
-import Common.Server.Api (NodeQueryRequest(NodeQueryRequest))
 
 addHandFileServer :: MonadSnap m => Server AddHandFile l m
 addHandFileServer contentsMay = undefined -- do
@@ -92,35 +93,58 @@ addDirServer (Just dirPath) = do
   where
     findTxtFiles = FP.find (FP.fileName FP./~? ".?*") FP.always dirPath -- (FP.fileName FP.~~? "*.txt") dir
 
+normaliseReq :: (Amount b -> Amount c) -> NodeQueryRequest b -> NodeQueryRequest c
+normaliseReq f
+  = \case
+      (NodeQueryRequest x0 stake b po ba nor)
+        -> NodeQueryRequest
+             {nodePath = (fmap . fmap . fmap . fmap) f $ x0, nodeStake = fmap f stake, includeHero = b, nodeExpectedPos = po,
+              nodeFilter = (fmap . fmap) f ba, nodeNormalisation = nor}
+
 queryServer :: MonadSnap m => Server QueryAPI l m
 queryServer = queryHandler
   where
     queryHandler :: MonadSnap m => SomeNodeQueryRequest -> m NodeQueryResponse
-    queryHandler (SomeNodeQueryRequest USD req) = go req (normFunc req)
-    normFunc :: NodeQueryRequest "USD" -> (History (Amount "USD") -> forall b. Maybe (History b))
-    normFunc req = case nodeNormalisation req of
-      NormToBB -> \hist -> case hist of
-        (_handStakes -> stake) -> Just (normalizeAmount stake <$> hist)
-      NoNorm -> Just
-    go :: MonadSnap m => NodeQueryRequest "USD" -> (History (Amount "USD") -> Maybe (History b)) -> m NodeQueryResponse
+    queryHandler (SomeNodeQueryRequest USD req) = let stake = nodeStake req in case nodeNormalisation req of
+      NormToBB ->
+        let f = (unBigBlind . normalizeAmount stake)
+        in go
+          (normaliseReq f req)
+          (\hist@(_handStakes -> stake) -> Just ( f <$> hist))
+      NoNorm -> go
+          req
+          Just
+
+    go ::
+      forall m b.
+      ( ToJSON (Amount b),
+        KnownSymbol b,
+        GoodScale (CurrencyScale b),
+        MonadSnap m
+      ) =>
+      NodeQueryRequest b ->
+      (History (Amount "USD") -> Maybe (History (Amount b))) ->
+      m NodeQueryResponse
     go request@NodeQueryRequest {..} normFunc = do
       conn <- liftIO $ checkedConnect defaultConnectInfo
-      cachedRes <- liftIO $ runRedis conn $
-        Redis.get (BL.toStrict $ encode request)
+      cachedRes <-
+        liftIO $
+          runRedis conn $
+            Redis.get (BL.toStrict $ encode request)
       case cachedRes of
         Left re -> error $ show re
         Right m_bs -> case m_bs of
-            Nothing -> do
-                -- liftIO migrateDB
-                liftIO $ print $ "running query" ++ show nodePath
-                hands <- liftIO $ runDb selectAllHands
-                liftIO $ print $ "Running query against " <> show (length hands) <> " hands"
-                let res = getNode hands request
-                liftIO $ runRedis conn $ Redis.set (BL.toStrict $ encode request) (BL.toStrict $ encode res)
-                -- liftIO $ print $ res
-                pure res
-            -- FIXME partial
-            Just bs -> pure . fromJust $ (Data.Aeson.decode $ BL.fromStrict bs)
+          Nothing -> do
+            -- liftIO migrateDB
+            liftIO $ print $ "running query" ++ show nodePath
+            hands <- liftIO $ runDb selectAllHands
+            liftIO $ print $ "Running query against " <> show (length hands) <> " hands"
+            let res = getNode (mapMaybe normFunc hands) request
+            liftIO $ runRedis conn $ Redis.set (BL.toStrict $ encode request) (BL.toStrict $ encode res)
+            -- liftIO $ print $ res
+            pure res
+          -- FIXME partial
+          Just bs -> pure . fromJust $ (Data.Aeson.decode $ BL.fromStrict bs)
 
 runDb :: SqlPersistM a -> IO a
 runDb =
@@ -170,8 +194,8 @@ statsServer = do
   let handsByStakes = foldr go Map.empty allHands
   pure $ Map.fromList [("numHands", show $ length allHands), ("handsByStakes", show handsByStakes)]
   where
-    go :: History (Amount "USD") -> Map (Stake (Amount "USD")) Int ->  Map (Stake (Amount "USD")) Int
-    go (_handStakes -> stakes) m = m & L.at stakes . non 0 L.%~ (+1)
+    go :: History (Amount "USD") -> Map (Stake (Amount "USD")) Int -> Map (Stake (Amount "USD")) Int
+    go (_handStakes -> stakes) m = m & L.at stakes . non 0 L.%~ (+ 1)
 
 parseInPath :: FilePath -> IO [History (Amount "USD")]
 parseInPath fp = do

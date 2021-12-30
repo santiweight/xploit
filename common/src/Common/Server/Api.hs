@@ -96,6 +96,7 @@ data SomeNodeQueryRequest where
 
 data NodeQueryRequest b = NodeQueryRequest
   { nodePath :: [(Position, BetAction (IxRange (Amount b)))],
+    nodeStake :: Stake (Amount b),
     includeHero :: Bool,
     nodeExpectedPos :: Position,
     nodeFilter :: BetAction (IxRange (Amount b)),
@@ -103,8 +104,11 @@ data NodeQueryRequest b = NodeQueryRequest
   }
   deriving (Show, Generic)
 
+newtype HistoryId = HistoryId Poker.History.Bovada.Model.Header
+  deriving (Show, Generic)
+
 data NodeQueryResponse = NodeQueryResponse
-  { handsMatchedFilter :: [History (Amount "USD")],
+  { handsMatchedFilter :: [HistoryId],
     holdingRange :: Range Hand Double,
     shapedHandRange :: Range ShapedHand Double
   }
@@ -150,5 +154,6 @@ deriveJSONGADT ''Curr
 -- deriveJSON defaultOptions ''NodeQueryRequest
 deriveJSON defaultOptions ''Normalisation
 deriveJSON defaultOptions ''NodeQueryResponse
+deriveJSON defaultOptions ''HistoryId
 deriveJSON defaultOptions ''ReviewHistory
 deriveJSON defaultOptions ''ReviewAction
