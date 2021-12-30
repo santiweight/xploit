@@ -9,7 +9,7 @@ import Common.Server.Api
     NodeQueryRequest (..),
     NodeQueryResponse (..),
   )
-import Control.Lens (over, (<&>))
+import Control.Lens ((<&>))
 import Control.Lens.TH
 import Control.Monad
 import Data.Bifunctor (Bifunctor (second))
@@ -20,6 +20,7 @@ import Data.Maybe
   ( catMaybes,
     fromMaybe,
     listToMaybe,
+    mapMaybe,
   )
 import Data.Monoid (Sum (Sum))
 import GHC.TypeLits
@@ -33,83 +34,51 @@ import Prelude hiding (pred)
 
 makeLenses ''Range
 
-matchedHandsNum :: Int
-matchedHandsNum = 10
-
 getNode :: (KnownSymbol b, GoodScale (CurrencyScale b)) => [History (Amount b)] -> NodeQueryRequest b -> NodeQueryResponse
-getNode hands NodeQueryRequest {..} =
-  let expectedPos = nodeExpectedPos
-      handResults =
-        catMaybes $
-          flip
-            ( tryGetHandNode expectedPos nodePath
-            )
-            includeHero
-            <$> hands
-      accRange = joinHandResults . fmap snd $ handResults
-      getHistoryIdIfFilterMatched (hist, handResultRange) =
-        case foldMap
-          (Sum . length . filter (doesBetMatch nodeFilter))
-          handResultRange of
-          0 -> Nothing
-          _ -> Just $ historyId hist
-      handsMatchedFilter =
-        take matchedHandsNum
-          . catMaybes
-          $ handResults
-            <&> getHistoryIdIfFilterMatched
-              . second getResultRange
-      -- TODO fix ""
-      -- FIXME This call to succ is non-total and is a hacky way to recover the current node's position. A better way
-      -- to do this is to have all players' positions so we can see who will act next. Alternatively, have the ranges accumulate
-      -- by the action's index (0..) in the list of all actions.
-      getResultRange r = fromMaybe mempty $ r Map.!? show (length nodePath)
-      resultRange = getResultRange accRange
-      (holdingRange, shapedHandRange) = getCurrentRanges nodeFilter resultRange
+getNode hists NodeQueryRequest {..} =
+  let handResults =
+        mapMaybe (\hist -> tryGetHandNode nodeExpectedPos nodePath hist includeHero) hists
+      resultRangesByHistoryId :: [(HistoryId, Range Hand Freq)] =
+        handResults <&> second (getMatchedRange nodeFilter . getResultRange)
+      resultRange' = foldr merge mempty $ snd <$> resultRangesByHistoryId
+      getHistoryIdIfFilterMatched (hist, Range r) =
+        if any (\(Freq num _) -> num > 0) $ Map.elems r
+          then Nothing
+          else Just hist
+      handsMatchedFilter = catMaybes $ resultRangesByHistoryId <&> getHistoryIdIfFilterMatched
+      (holdingRange, shapedHandRange) = (freqToDouble <$> resultRange', freqToDouble <$> holdingRangeToShapedRange resultRange')
    in NodeQueryResponse {..}
   where
-    historyId = HistoryId . header
-    joinHandResults = Map.unionsWith (\(Range r1) (Range r2) -> Range $ Map.unionWith (++) r1 r2)
+    getResultRange r = fromMaybe mempty $ r Map.!? show (length nodePath)
+    getMatchedRange ::
+      IsBet b =>
+      BetAction (IxRange b) ->
+      Range Hand [BetAction b] ->
+      Range Hand Freq
+    getMatchedRange nodeFilterAct nodeRange = countFreq (doesBetMatch nodeFilterAct) <$> nodeRange
 
-getCurrentRanges ::
-  forall b.
+getMatchedRanges ::
   IsBet b =>
   BetAction (IxRange b) ->
   Range Hand [BetAction b] ->
   (Range Hand Double, Range ShapedHand Double)
-getCurrentRanges currActFilter nodeRange =
-  let currActFilterFunction = doesBetMatch currActFilter
-      countActFreq :: forall k. Range k [BetAction b] -> Range k Double
-      countActFreq = applyFilterAsFreq currActFilterFunction
-      holdingRange = countActFreq nodeRange
-      utgShowRange = countActFreq . holdingRangeToShapedRange $ nodeRange
-   in (holdingRange, utgShowRange)
+getMatchedRanges nodeFilterAct nodeRange =
+  let handRange = countFreq (doesBetMatch nodeFilterAct) <$> nodeRange
+      shapedHandRange = holdingRangeToShapedRange handRange
+   in (freqToDouble <$> handRange, freqToDouble <$> shapedHandRange)
 
-applyFilterAsFreq ::
-  (BetAction b -> Bool) -> Range k [BetAction b] -> Range k Double
-applyFilterAsFreq ix matchedActsRange =
-  ( \acts ->
-      100 * (fromIntegral (length (filter ix acts)) / fromIntegral (length acts))
-  )
-    <$> matchedActsRange
-
-freqToDouble :: Freq -> Double
-freqToDouble (Freq num denom) = 100 * (fromIntegral num / fromIntegral denom)
-
-applyFilterAsFreq' ::
-  (BetAction b -> Bool) -> [BetAction b] -> Double
-applyFilterAsFreq' ix acts =
-  100 * (fromIntegral (length (filter ix acts)) / fromIntegral (length acts))
+historyId = HistoryId . header
 
 tryGetHandNode ::
-  (IsBetSize b, IsBet b, Pretty b, Show b) =>
+  (IsBet b, Pretty b) =>
   Position ->
   [(Position, BetAction (IxRange b))] ->
   History b ->
   Bool ->
-  Maybe (History b, Map String (Range Hand [BetAction b]))
+  Maybe (HistoryId, Map String (Range Hand [BetAction b]))
 tryGetHandNode expectedPos branch hand includeHero =
-  fmap ((hand,) . fmap Range) . listToMaybe . rights $
+  -- TODO instead of listToMaybe, could choose the longest match
+  fmap ((historyId hand,) . fmap Range) . listToMaybe . rights $
     getPathRange
       hand
       expectedPos
@@ -135,7 +104,7 @@ getReviewRanges nodePath hands =
       -- FIXME This call to succ is non-total and is a hacky way to recover the current node's position. A better way
       -- to do this is to have all players' positions so we can see who will act next. Alternatively, have the ranges accumulate
       -- by the action's index (0..) in the list of all actions.
-      ranges = Map.mapWithKey (getCurrentRanges . (Map.!) ixBetsByActNum) (fmap Range accRange)
+      ranges = Map.mapWithKey (getMatchedRanges . (Map.!) ixBetsByActNum) (fmap Range accRange)
    in ranges
   where
     joinHandResults = Map.unionsWith (Map.unionWith (++))
